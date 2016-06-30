@@ -102,11 +102,11 @@ public:
     uint_fast32_t module;
 
     /* Constructors */
-    DWire( void );
+    DWire( uint_fast32_t );
     ~DWire( void );
 
     /* MASTER specific */
-    void begin( uint_fast32_t );
+    void begin(  );
 
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
@@ -116,7 +116,7 @@ public:
     uint8_t requestFrom( uint_fast8_t, uint_fast8_t );
 
     /* SLAVE specific */
-    void begin( uint_fast32_t, uint8_t );
+    void begin( uint8_t );
 
     uint8_t read( void );
 

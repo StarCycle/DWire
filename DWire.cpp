@@ -91,7 +91,8 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 
 /**** CONSTRUCTORS ****/
 
-DWire::DWire( void ) {
+DWire::DWire( uint_fast32_t module ) {
+	this->module = module;
 }
 
 DWire::~DWire() {
@@ -101,8 +102,7 @@ DWire::~DWire() {
 
 /**** PUBLIC METHODS ****/
 
-void DWire::begin(uint_fast32_t module) {
-	this->module = module;
+void DWire::begin() {
 
 	// Initialising the given module as a master
 	busRole = BUS_ROLE_MASTER;
@@ -112,8 +112,7 @@ void DWire::begin(uint_fast32_t module) {
 	_initMaster(&i2cConfig);
 }
 
-void DWire::begin(uint_fast32_t module, uint8_t address) {
-	this->module = module;
+void DWire::begin(uint8_t address) {
 
 	// Initialising the given module as a slave
 	busRole = BUS_ROLE_SLAVE;
