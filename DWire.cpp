@@ -95,6 +95,10 @@ DWire::DWire( uint_fast32_t module ) {
 	this->module = module;
 }
 
+DWire::DWire(  ) {
+	this->module = EUSCI_B1_BASE;
+}
+
 DWire::~DWire() {
 	// Deregister from the moduleMap
 	unregisterModule(this);

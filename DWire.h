@@ -103,6 +103,7 @@ public:
 
     /* Constructors */
     DWire( uint_fast32_t );
+    DWire(  );
     ~DWire( void );
 
     /* MASTER specific */
