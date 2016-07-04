@@ -81,22 +81,33 @@ uint8_t EUSCIB3_rxBufferSize = 0;
 #endif
 
 // The default eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfig = {
+const eUSCI_I2C_MasterConfig i2cConfigFastSpeed = {
 EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
-		MAP_CS_getSMCLK(),                 // Get the SMCLK clock frequency
-		EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
-		0,                                      // No byte counter threshold
-		EUSCI_B_I2C_NO_AUTO_STOP                // No Autostop
+		MAP_CS_getSMCLK(),                       // Get the SMCLK clock frequency
+		EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
+		0,                                       // No byte counter threshold
+		EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
 		};
 
+// The standsrd speed eUSCI settings
+const eUSCI_I2C_MasterConfig i2cConfigStandardSpeed = {
+EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
+		MAP_CS_getSMCLK(),                       // Get the SMCLK clock frequency
+		EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
+		0,                                       // No byte counter threshold
+		EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
+		};
+		
 /**** CONSTRUCTORS ****/
 
 DWire::DWire( uint_fast32_t module ) {
 	this->module = module;
+	this->speed = FAST;
 }
 
 DWire::DWire(  ) {
 	this->module = EUSCI_B1_BASE;
+	this->speed = FAST;
 }
 
 DWire::~DWire() {
@@ -113,9 +124,24 @@ void DWire::begin() {
 	slaveAddress = 0;
 	_initMain();
 
-	_initMaster(&i2cConfig);
+	if (speed == FAST)
+	{
+		_initMaster(&i2cConfigFastSpeed);
+	}
+	else
+	{
+		_initMaster(&i2cConfigStandardSpeed);
+	}
 }
 
+void DWire::setStandardSpeed(  ) {
+	this->speed = STANDARD;
+}
+
+void DWire::setFastSpeed(  ) {
+	this->speed = FAST;
+}
+    
 void DWire::begin(uint8_t address) {
 
 	// Initialising the given module as a slave
@@ -391,7 +417,7 @@ void DWire::_initMaster(const eUSCI_I2C_MasterConfig * i2cConfig) {
 	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
 	GPIO_PRIMARY_MODULE_FUNCTION);
 
-	// Initializing I2C Master to SMCLK at 400kbs with no autostop
+	// Initializing I2C Master to SMCLK with no autostop
 	MAP_I2C_initMaster(module, i2cConfig);
 
 	// Specify slave address

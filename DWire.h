@@ -26,6 +26,10 @@
 #define BUS_ROLE_MASTER 0
 #define BUS_ROLE_SLAVE 1
 
+// define I2C speed
+#define STANDARD 0
+#define FAST     1
+
 // Default buffer size in bytes
 #define TX_BUFFER_SIZE 32
 #define RX_BUFFER_SIZE 32
@@ -80,6 +84,8 @@ private:
     volatile bool sendStop;
     volatile bool gotNAK;
 
+    uint8_t speed;
+    
     uint8_t slaveAddress;
 
     uint8_t busRole;
@@ -108,6 +114,8 @@ public:
 
     /* MASTER specific */
     void begin(  );
+    void setStandardSpeed(  );
+    void setFastSpeed(  );
 
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
