@@ -80,8 +80,8 @@ uint8_t EUSCIB3_rxBufferIndex = 0;
 uint8_t EUSCIB3_rxBufferSize = 0;
 #endif
 
-// The default eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfigFastSpeed = {
+// Fast mode eUSCI settings
+const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
 EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 		MAP_CS_getSMCLK(),                       // Get the SMCLK clock frequency
 		EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
@@ -89,8 +89,8 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 		EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
 		};
 
-// The standsrd speed eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfigStandardSpeed = {
+// Standard mode eUSCI settings
+const eUSCI_I2C_MasterConfig i2cConfigStandardMode = {
 EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 		MAP_CS_getSMCLK(),                       // Get the SMCLK clock frequency
 		EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
@@ -102,12 +102,12 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 
 DWire::DWire( uint_fast32_t module ) {
 	this->module = module;
-	this->speed = FAST;
+	this->mode = FAST;
 }
 
 DWire::DWire(  ) {
 	this->module = EUSCI_B1_BASE;
-	this->speed = FAST;
+	this->mode = FAST;
 }
 
 DWire::~DWire() {
@@ -124,22 +124,22 @@ void DWire::begin() {
 	slaveAddress = 0;
 	_initMain();
 
-	if (speed == FAST)
+	if (mode == FAST)
 	{
-		_initMaster(&i2cConfigFastSpeed);
+		_initMaster(&i2cConfigFastMode);
 	}
 	else
 	{
-		_initMaster(&i2cConfigStandardSpeed);
+		_initMaster(&i2cConfigStandardMode);
 	}
 }
 
-void DWire::setStandardSpeed(  ) {
-	this->speed = STANDARD;
+void DWire::setStandardMode(  ) {
+	this->mode = STANDARD;
 }
 
-void DWire::setFastSpeed(  ) {
-	this->speed = FAST;
+void DWire::setFastMode(  ) {
+	this->mode = FAST;
 }
     
 void DWire::begin(uint8_t address) {

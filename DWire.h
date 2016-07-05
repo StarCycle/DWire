@@ -84,7 +84,7 @@ private:
     volatile bool sendStop;
     volatile bool gotNAK;
 
-    uint8_t speed;
+    uint8_t mode;
     
     uint8_t slaveAddress;
 
@@ -114,8 +114,8 @@ public:
 
     /* MASTER specific */
     void begin(  );
-    void setStandardSpeed(  );
-    void setFastSpeed(  );
+    void setStandardMode(  );
+    void setFastMode(  );
 
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
