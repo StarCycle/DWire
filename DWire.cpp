@@ -16,6 +16,16 @@
 
 #include "modulemap.h"
 
+/**** MACROs ****/
+
+#define CREATEBUFFERS(M) \
+uint8_t EUSCIB ## M ## _txBuffer[TX_BUFFER_SIZE]; \
+uint8_t EUSCIB ## M ## _txBufferIndex = 0; \
+uint8_t EUSCIB ## M ## _txBufferSize = 0; \
+uint8_t EUSCIB ## M ## _rxBuffer[RX_BUFFER_SIZE]; \
+uint8_t EUSCIB ## M ## _rxBufferIndex = 0; \
+uint8_t EUSCIB ## M ## _rxBufferSize = 0;
+
 /**** PROTOTYPES AND CLASSES ****/
 
 /* A data structure containing pointers to relevant buffers
@@ -37,47 +47,19 @@ void IRQHandler(IRQParam);
 
 // The buffers need to be declared globally, as the interrupts are too
 #ifdef USING_EUSCI_B0
-
-uint8_t EUSCIB0_txBuffer[TX_BUFFER_SIZE];
-uint8_t EUSCIB0_txBufferIndex = 0;
-uint8_t EUSCIB0_txBufferSize = 0;
-
-uint8_t EUSCIB0_rxBuffer[RX_BUFFER_SIZE];
-uint8_t EUSCIB0_rxBufferIndex = 0;
-uint8_t EUSCIB0_rxBufferSize = 0;
+CREATEBUFFERS(0)
 #endif
 
 #ifdef USING_EUSCI_B1
-
-uint8_t EUSCIB1_txBuffer[TX_BUFFER_SIZE];
-uint8_t EUSCIB1_txBufferIndex = 0;
-uint8_t EUSCIB1_txBufferSize = 0;
-
-uint8_t EUSCIB1_rxBuffer[RX_BUFFER_SIZE];
-uint8_t EUSCIB1_rxBufferIndex = 0;
-uint8_t EUSCIB1_rxBufferSize = 0;
+CREATEBUFFERS(1)
 #endif
 
 #ifdef USING_EUSCI_B2
-
-uint8_t EUSCIB2_txBuffer[TX_BUFFER_SIZE];
-uint8_t EUSCIB2_txBufferIndex = 0;
-uint8_t EUSCIB2_txBufferSize = 0;
-
-uint8_t EUSCIB2_rxBuffer[RX_BUFFER_SIZE];
-uint8_t EUSCIB2_rxBufferIndex = 0;
-uint8_t EUSCIB2_rxBufferSize = 0;
+CREATEBUFFERS(2)
 #endif
 
 #ifdef USING_EUSCI_B3
-
-uint8_t EUSCIB3_txBuffer[TX_BUFFER_SIZE];
-uint8_t EUSCIB3_txBufferIndex = 0;
-uint8_t EUSCIB3_txBufferSize = 0;
-
-uint8_t EUSCIB3_rxBuffer[RX_BUFFER_SIZE];
-uint8_t EUSCIB3_rxBufferIndex = 0;
-uint8_t EUSCIB3_rxBufferSize = 0;
+CREATEBUFFERS(3)
 #endif
 
 // Fast mode eUSCI settings
@@ -192,8 +174,8 @@ void DWire::endTransmission(bool sendStop) {
 	}
 
 	// Wait until any ongoing (incoming) transmissions are finished
-	//while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
-	//    ;
+	while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
+	    ;
 
 	this->sendStop = sendStop;
 
