@@ -46,12 +46,14 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
             EUSCIB ## M ## _rxBufferIndex++;\
             \
             if(EUSCIB ## M ## _rxBufferIndex == EUSCIB ## M ##_rxBufferSize - 1) {\
-                MAP_I2C_masterReceiveMultiByteStop(EUSCI_B ## M ##_BASE);\
+                MAP_I2C_masterReceiveMultiByteStop(EUSCI_B ## M ## _BASE);\
             }\
+            \
             if (EUSCIB ## M ## _rxBufferIndex == EUSCIB ## M ## _rxBufferSize) {\
                 DWire * instance = instances[M];\
                 if (instance) {\
                     instance->_finishRequest();\
+                while(MAP_I2C_masterIsStopSent(EUSCI_B ## M ## _BASE) == EUSCI_B_I2C_SENDING_STOP);\
                 }\
             }\
             /* Otherwise we're a slave receiving data */ \
@@ -92,6 +94,7 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
     /* Handle a NAK */ \
     if (status & EUSCI_B_I2C_NAK_INTERRUPT) {\
         DWire * instance = instances[M];\
+        MAP_I2C_masterReceiveMultiByteStop(EUSCI_B ## M ## _BASE);\
         if (instance)\
             instance->_finishRequest(true);\
     }\
@@ -241,6 +244,7 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
     // Wait in case a previous message is still being sent
     while ( MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP )
         ;
+    //while( MAP_I2C_isBusBusy(module) );
 
     if ( slaveAddress != this->slaveAddress )
         _setSlaveAddress(slaveAddress);
