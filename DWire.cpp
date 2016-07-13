@@ -39,7 +39,6 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
     /* RXIFG */ \
     /* Triggered when data has been received */ \
     if (status & EUSCI_B_I2C_RECEIVE_INTERRUPT0) {\
-        /* If the rxBufferSize > 0, then we're a master performing a request */ \
         if (EUSCIB ## M ## _rxBufferSize > 0) { \
             EUSCIB ## M ## _rxBuffer[EUSCIB ## M ## _rxBufferIndex] = \
             MAP_I2C_masterReceiveMultiByteNext(EUSCI_B ## M ## _BASE);\
@@ -291,10 +290,16 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     if ( busRole != BUS_ROLE_MASTER )
         return 0;
 
+    // still something to send? Flush the TX buffer but do not send a STOP
     if ( *pTxBufferIndex > 0 ) {
         endTransmission(false);
+        
+        // wait until the flush is complete
+        while(*pTxBufferIndex);
+    } else {
+        // wait for any request to terminate
+        while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY );
     }
-
 
     // Re-initialise the rx buffer
     *pRxBufferSize = numBytes;
@@ -661,9 +666,13 @@ void EUSCIB1_IRQHandler( void ) {
     status = MAP_I2C_getEnabledInterruptStatus(EUSCI_B1_BASE);
     MAP_I2C_clearInterruptFlag(EUSCI_B1_BASE, status);
 
+    DWire * instance = instances[1];
+
     /* RXIFG */
     /* Triggered when data has been received */
     if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) {
+        /* Are we a master performing a request? */
+        if ( instance->isMaster( ) ) {
             EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] =
             MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
             EUSCIB1_rxBufferIndex++;
@@ -675,9 +684,9 @@ void EUSCIB1_IRQHandler( void ) {
             if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
                 if ( instance ) {
                     instance->_finishRequest( );
-                    while ( MAP_I2C_masterIsStopSent(EUSCI_B1_BASE)
-                            == EUSCI_B_I2C_SENDING_STOP )
-                        ;
+                    //while ( MAP_I2C_masterIsStopSent(EUSCI_B1_BASE)
+                    //        == EUSCI_B_I2C_SENDING_STOP )
+                    //     ;
                 }
             }
             /* Otherwise we're a slave receiving data */
@@ -694,8 +703,11 @@ void EUSCIB1_IRQHandler( void ) {
         /* If the module is setup as a master, then we're transmitting data */
         if ( instance->isMaster( ) ) {
             /* If we've transmitted the last byte from the buffer, then send a stop */
+            if ( EUSCIB1_txBufferIndex == 1 ) {
                 if(instance->_isSendStop( ))
                     MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
+                EUSCIB1_txBufferIndex--;
+            } else if ( EUSCIB1_txBufferIndex > 1 ) {
                 /* If we still have data left in the buffer, then transmit that */
                 MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
                         EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
