@@ -141,6 +141,7 @@ public:
     void _finishRequest( void );
     void _finishRequest( bool );
     bool _isSendStop( bool );
+    bool _isSendStop( void );
 };
 
 
