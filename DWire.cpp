@@ -298,7 +298,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
         while(*pTxBufferIndex);
     } else {
         // wait for any request to terminate
-        while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY );
+        while(MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP);
     }
 
     // Re-initialise the rx buffer
@@ -684,9 +684,6 @@ void EUSCIB1_IRQHandler( void ) {
             if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
                 if ( instance ) {
                     instance->_finishRequest( );
-                    //while ( MAP_I2C_masterIsStopSent(EUSCI_B1_BASE)
-                    //        == EUSCI_B_I2C_SENDING_STOP )
-                    //     ;
                 }
             }
             /* Otherwise we're a slave receiving data */
