@@ -12,7 +12,10 @@
  *
  */
 
-#include "DWire.h"
+#include <DWire.h>
+#include <DSerial.h>
+
+extern DSerial serial;
 
 /**** MACROs ****/
 
@@ -240,7 +243,8 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
         return;
 
     // Wait in case a previous message is still being sent
-    while ( *pTxBufferIndex > 0 );
+    while ( *pTxBufferIndex > 0 )
+        ;
 
     if ( slaveAddress != this->slaveAddress )
         _setSlaveAddress(slaveAddress);
@@ -270,7 +274,9 @@ void DWire::endTransmission( bool sendStop ) {
     }
 
     // Wait until any ongoing (incoming) transmissions are finished
-    while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
+    //while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
+    //    ;
+    while ( MAP_I2C_masterIsStopSent(module) )
         ;
 
     this->sendStop = sendStop;
@@ -293,12 +299,14 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     // still something to send? Flush the TX buffer but do not send a STOP
     if ( *pTxBufferIndex > 0 ) {
         endTransmission(false);
-        
+
         // wait until the flush is complete
-        while(*pTxBufferIndex);
+        while ( *pTxBufferIndex )
+            ;
     } else {
         // wait for any request to terminate
-        while(MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP);
+        while ( MAP_I2C_isBusBusy(module) )
+            ;
     }
 
     // Re-initialise the rx buffer
@@ -309,7 +317,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     MAP_I2C_setSlaveAddress(module, slaveAddress);
     this->slaveAddress = slaveAddress;
 
-    MAP_I2C_disableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
+    //MAP_I2C_disableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
 
     // Set the master into receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
@@ -320,6 +328,8 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     // Send a stop early if we're only requesting one byte
     // to prevent timing issues
     if ( numBytes == 1 ) {
+        while ( MAP_I2C_masterIsStartSent(module) )
+            ;
         MAP_I2C_masterReceiveMultiByteStop(module);
     }
 
@@ -333,8 +343,8 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
 
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
 
-    MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-    MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
+    //MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
+    //MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
 
     // Reset the buffer
     (*pRxBufferIndex) = 0;
@@ -701,14 +711,14 @@ void EUSCIB1_IRQHandler( void ) {
         if ( instance->isMaster( ) ) {
             /* If we've transmitted the last byte from the buffer, then send a stop */
             if ( EUSCIB1_txBufferIndex == 1 ) {
-                if(instance->_isSendStop( ))
+                if ( instance->_isSendStop( ) )
                     MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
                 EUSCIB1_txBufferIndex--;
             } else if ( EUSCIB1_txBufferIndex > 1 ) {
                 /* If we still have data left in the buffer, then transmit that */
                 MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
                         EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
-                                - (EUSCIB1_txBufferIndex)]);
+                                - (EUSCIB1_txBufferIndex) + 1]);
                 EUSCIB1_txBufferIndex--;
             }
 
