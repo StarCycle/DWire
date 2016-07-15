@@ -312,6 +312,13 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
         endTransmission(false);
     }
 
+    bool reqSingleByte = false;
+
+    if(numBytes == 1) {
+        numBytes++;
+        reqSingleByte = true;
+    }
+
     // Re-initialise the rx buffer
     *pRxBufferSize = numBytes;
     *pRxBufferIndex = 0;
@@ -320,13 +327,15 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     MAP_I2C_setSlaveAddress(module, slaveAddress);
     this->slaveAddress = slaveAddress;
 
-    // Set the master into receive mode
-    MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
-
     MAP_I2C_clearInterruptFlag(module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
     MAP_I2C_enableInterrupt(module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+
+    // Set the master into receive mode
+    MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
+
+
 
     // Initialize the flag showing the status of the request
     requestDone = false;
@@ -356,7 +365,10 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     if ( gotNAK ) {
         return 0;
     } else {
-        return rxReadLength;
+        if(reqSingleByte)
+            return rxReadLength--;
+        else
+            return rxReadLength;
     }
 }
 
@@ -682,7 +694,7 @@ void EUSCIB1_IRQHandler( void ) {
 
     /* Handle a NAK */
     if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
-        //MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
+        MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
         if ( instance )
             instance->_finishRequest(true);
         EUSCIB1_txBufferIndex = 0;
