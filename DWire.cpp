@@ -13,6 +13,9 @@
  */
 
 #include "DWire.h"
+#include <DSerial.h>
+
+extern DSerial serial;
 
 /**** MACROs ****/
 
@@ -39,7 +42,6 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
     /* RXIFG */ \
     /* Triggered when data has been received */ \
     if (status & EUSCI_B_I2C_RECEIVE_INTERRUPT0) {\
-        /* If the rxBufferSize > 0, then we're a master performing a request */ \
         if (EUSCIB ## M ## _rxBufferSize > 0) { \
             EUSCIB ## M ## _rxBuffer[EUSCIB ## M ## _rxBufferIndex] = \
             MAP_I2C_masterReceiveMultiByteNext(EUSCI_B ## M ## _BASE);\
@@ -74,9 +76,8 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
             if (instance->isMaster()) {\
                 /* If we've transmitted the last byte from the buffer, then send a stop */ \
                 if (!(EUSCIB ## M ## _txBufferIndex)) {\
-                    if (instance->_isSendStop(false))\
+                    if (instance->_isSendStop())\
                         MAP_I2C_masterSendMultiByteStop(EUSCI_B ## M ## _BASE);\
-                    instance->_isSendStop(true);\
                 } else {\
                     /* If we still have data left in the buffer, then transmit that */ \
                     MAP_I2C_masterSendMultiByteNext(EUSCI_B ## M ## _BASE,\
@@ -149,11 +150,9 @@ CREATEBUFFERS(2)
 CREATEBUFFERS(3)
 #endif
 
-volatile bool txDone = true;
-
 // Fast mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
-EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
+        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
         MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
         0,                                       // No byte counter threshold
@@ -162,7 +161,7 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 
 // Standard mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigStandardMode = {
-EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
+        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
         MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
         0,                                       // No byte counter threshold
@@ -244,9 +243,8 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
         return;
 
     // Wait in case a previous message is still being sent
-    //while ( MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP )
-     //   ;
-    while( MAP_I2C_isBusBusy(module) );
+    while ( *pTxBufferIndex > 0 )
+        ;
 
     if ( slaveAddress != this->slaveAddress )
         _setSlaveAddress(slaveAddress);
@@ -261,34 +259,44 @@ void DWire::write( uint8_t dataByte ) {
     (*pTxBufferIndex)++;
 }
 
-void DWire::endTransmission( void ) {
-    endTransmission(true);
+bool DWire::endTransmission( void ) {
+    return endTransmission(true);
 }
 
 /**
  * End the transmission and transmit the tx buffer's contents over the bus
  */
-void DWire::endTransmission( bool sendStop ) {
+bool DWire::endTransmission( bool sendStop ) {
 
+    // return, if there is nothing to transmit
     if ( !*pTxBufferIndex ) {
-        txDone = true;
-        return;
+        return 0;
     }
 
     // Wait until any ongoing (incoming) transmissions are finished
-    while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
+    while ( MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP )
         ;
 
     this->sendStop = sendStop;
+    gotNAK = false;
+
+    // Clear the interrupt flags and enable
+    MAP_I2C_clearInterruptFlag(module,
+            EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+
+    MAP_I2C_enableInterrupt(module,
+            EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
     // Send the start condition and initial byte
     (*pTxBufferSize) = *pTxBufferIndex;
-    (*pTxBufferIndex)--;
-
-    txDone = false;
 
     // Send the first byte, triggering the TX interrupt
     MAP_I2C_masterSendMultiByteStart(module, pTxBuffer[0]);
+
+    while ( *pTxBufferIndex )
+        ;
+
+    return gotNAK;
 }
 
 /**
@@ -299,12 +307,10 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     if ( busRole != BUS_ROLE_MASTER )
         return 0;
 
+    // still something to send? Flush the TX buffer but do not send a STOP
     if ( *pTxBufferIndex > 0 ) {
         endTransmission(false);
     }
-
-    while(!txDone);
-    //while(*pTxBufferIndex);
 
     // Re-initialise the rx buffer
     *pRxBufferSize = numBytes;
@@ -314,10 +320,17 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     MAP_I2C_setSlaveAddress(module, slaveAddress);
     this->slaveAddress = slaveAddress;
 
-    MAP_I2C_disableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-
     // Set the master into receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
+
+    MAP_I2C_clearInterruptFlag(module,
+            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+    MAP_I2C_enableInterrupt(module,
+            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+
+    // Initialize the flag showing the status of the request
+    requestDone = false;
+    gotNAK = false;
 
     // Send the START
     MAP_I2C_masterReceiveStart(module);
@@ -325,21 +338,16 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     // Send a stop early if we're only requesting one byte
     // to prevent timing issues
     if ( numBytes == 1 ) {
+        while ( MAP_I2C_masterIsStartSent(module) )
+            ;
         MAP_I2C_masterReceiveMultiByteStop(module);
     }
-
-    // Initialize the flag showing the status of the request
-    requestDone = false;
-    gotNAK = false;
 
     // Wait until the request is done
     while ( !requestDone )
         ;
 
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
-
-    MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-    MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
 
     // Reset the buffer
     (*pRxBufferIndex) = 0;
@@ -489,8 +497,7 @@ void DWire::_initMain( void ) {
         pRxBufferIndex = &EUSCIB3_rxBufferIndex;
         pRxBufferSize = &EUSCIB3_rxBufferSize;
 
-        modulePort = EUSCI_B3_PORT
-        ;
+        modulePort = EUSCI_B3_PORT;
         modulePins = EUSCI_B3_PINS;
 
         intModule = INT_EUSCIB3;
@@ -510,7 +517,7 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 
     // Initialise the pins
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-    GPIO_PRIMARY_MODULE_FUNCTION);
+            GPIO_PRIMARY_MODULE_FUNCTION);
 
     // Initializing I2C Master to SMCLK with no autostop
     MAP_I2C_initMaster(module, i2cConfig);
@@ -524,15 +531,15 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
     // Enable I2C Module to start operations
     MAP_I2C_enableModule(module);
 
-    // Enable and clear the interrupt flag
+    // Clear the interrupt flag
     MAP_I2C_clearInterruptFlag(module,
             EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT
                     + EUSCI_B_I2C_RECEIVE_INTERRUPT0);
 
     // Enable master interrupts
-    MAP_I2C_enableInterrupt(module,
-            EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT
-                    + EUSCI_B_I2C_RECEIVE_INTERRUPT0);
+    //MAP_I2C_enableInterrupt(module,
+    //       EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT
+    //               + EUSCI_B_I2C_RECEIVE_INTERRUPT0);
 
     // Register the interrupts on the correct module
     MAP_Interrupt_enableInterrupt(intModule);
@@ -542,11 +549,11 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 void DWire::_initSlave( void ) {
     // Init the pins
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-    GPIO_PRIMARY_MODULE_FUNCTION);
+            GPIO_PRIMARY_MODULE_FUNCTION);
 
     // initialise driverlib
     MAP_I2C_initSlave(module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
-    EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
+            EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
 
     // Enable the module
     MAP_I2C_enableModule(module);
@@ -639,16 +646,6 @@ void DWire::_finishRequest( bool NAK ) {
     requestDone = true;
 }
 
-bool DWire::_isSendStop( bool resetAfterwards ) {
-    if ( !sendStop ) {
-        if ( resetAfterwards )
-            sendStop = true;
-        return false;
-    } else {
-        return true;
-    }
-}
-
 bool DWire::_isSendStop( void ) {
     return sendStop;
 }
@@ -681,73 +678,73 @@ void EUSCIB1_IRQHandler( void ) {
     status = MAP_I2C_getEnabledInterruptStatus(EUSCI_B1_BASE);
     MAP_I2C_clearInterruptFlag(EUSCI_B1_BASE, status);
 
+    DWire * instance = instances[1];
+
+    /* Handle a NAK */
+    if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
+        //MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
+        if ( instance )
+            instance->_finishRequest(true);
+        EUSCIB1_txBufferIndex = 0;
+        EUSCIB1_rxBufferIndex = 0;
+
+        // Disable all other interrupts
+        MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
+                EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_TRANSMIT_INTERRUPT0
+                        | EUSCI_B_I2C_NAK_INTERRUPT);
+        // Return to make sure nothing else is done
+        return;
+    }
+
     /* RXIFG */
     /* Triggered when data has been received */
     if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) {
-        /* If the rxBufferSize > 0, then we're a master performing a request */
-        if ( EUSCIB1_rxBufferSize > 0 ) {
-            EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] =
-            MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
-            EUSCIB1_rxBufferIndex++;
+        EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] =
+                MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
+        EUSCIB1_rxBufferIndex++;
 
-            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1 ) {
-                MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
-            }
+        if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1 ) {
+            MAP_I2C_masterReceiveMultiByteStop (EUSCI_B1_BASE);
+        }
 
-            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
-                DWire * instance = instances[1];
-                if ( instance ) {
-                    instance->_finishRequest( );
-                    while ( MAP_I2C_masterIsStopSent(EUSCI_B1_BASE)
-                            == EUSCI_B_I2C_SENDING_STOP )
-                        ;
-                }
+        if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
+            if ( instance ) {
+                // Disable the RX interrupt
+                MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
+                        EUSCI_B_I2C_RECEIVE_INTERRUPT0
+                                | EUSCI_B_I2C_NAK_INTERRUPT);
+                // Mark the request as done
+                instance->_finishRequest( );
             }
-            /* Otherwise we're a slave receiving data */
-        } else {
-            EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] = MAP_I2C_slaveGetData(
-            EUSCI_B1_BASE);
-            (EUSCIB1_rxBufferIndex)++;
         }
     }
 
     /* As master: triggered when a byte has been transmitted */
     /* As slave: triggered on request */
     if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) {
-        DWire * instance = instances[1];
         /* If the module is setup as a master, then we're transmitting data */
-        if ( instance->isMaster( ) ) {
-            /* If we've transmitted the last byte from the buffer, then send a stop */
-            if ( EUSCIB1_txBufferIndex == 0 ) {
-                txDone = true;
-                if(instance->_isSendStop( ))
-                    MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
-
-            } else if ( EUSCIB1_txBufferIndex > 0 ) {
-                /* If we still have data left in the buffer, then transmit that */
-                MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
-                        EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
-                                - (EUSCIB1_txBufferIndex)]);
-                EUSCIB1_txBufferIndex--;
+        if ( EUSCIB1_txBufferIndex == 1 ) {
+            // Send a STOP condition if required
+            if ( instance->_isSendStop( ) ) {
+                MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
             }
+            // Disable the TX interrupt
+            MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
+                    EUSCI_B_I2C_TRANSMIT_INTERRUPT0
+                            + EUSCI_B_I2C_NAK_INTERRUPT);
+            EUSCIB1_txBufferIndex--;
 
-            /* Otherwise we're a slave and a master is requesting data */
-        } else {
-            instance->_handleRequestSlave( );
+        } else if ( EUSCIB1_txBufferIndex > 1 ) {
+            /* If we still have data left in the buffer, then transmit that */
+            MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
+                    EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
+                            - (EUSCIB1_txBufferIndex) + 1]);
+            EUSCIB1_txBufferIndex--;
         }
-    }
-
-    /* Handle a NAK */
-    if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
-        DWire * instance = instances[1];
-        MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
-        if ( instance )
-            instance->_finishRequest(true);
     }
 
     /* STPIFG: Called when a STOP is received */
     if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) {
-        DWire * instance = instances[1];
         if ( instance ) {
             if ( EUSCIB1_txBufferIndex != 0 && !instance->isMaster( ) ) {
                 MAP_I2C_slavePutData(EUSCI_B1_BASE, 0);
