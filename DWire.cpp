@@ -13,9 +13,6 @@
  */
 
 #include "DWire.h"
-#include <DSerial.h>
-#include <Energia.h>
-extern DSerial serial;
 
 volatile unsigned char stopCounter = 0;
 /**** MACROs ****/
@@ -153,8 +150,8 @@ CREATEBUFFERS(3)
 
 // Fast mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
-        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
-        MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
+        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
         0,                                       // No byte counter threshold
         EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
@@ -162,8 +159,8 @@ const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
 
 // Standard mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigStandardMode = {
-        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
-        MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
+        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
         0,                                       // No byte counter threshold
         EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
@@ -214,6 +211,12 @@ void DWire::begin( ) {
     } else {
         _initMaster(&i2cConfigStandardMode);
     }
+    
+    // calculate the number of iterations of a loop to generate
+    // a delay based on clock speed
+    // this is needed to handle NACKs in a way that is independent
+    // of CPU speed and OS (Energia or not)
+    delayCycles = MAP_CS_getMCLK() * 30 / 7905857;
 }
 
 void DWire::setStandardMode( ) {
@@ -302,7 +305,7 @@ bool DWire::endTransmission( bool sendStop ) {
         ;
 
     if ( gotNAK ) {
-        delay(1);
+        _I2CDelay();
         MAP_I2C_masterReceiveMultiByteStop(module); 
     } 
     return gotNAK;
@@ -377,7 +380,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
 stopCounter = 0;
 
     if ( gotNAK ) {
-        delay(1);
+        _I2CDelay();
         MAP_I2C_masterReceiveMultiByteStop(module); 
         return 0;
     } else {
@@ -670,6 +673,25 @@ void DWire::_finishRequest( bool NAK ) {
 
 bool DWire::_isSendStop( void ) {
     return sendStop;
+}
+
+void DWire::_I2CDelay( void ) {
+     // delay for 1.5 byte-times and send the stop
+     // this is needed because the MSP432 ignores any 
+     // stop if the byte is being received / transmitted
+     
+     // if we are in STANDARD mode we need ~120us (4x 30us)
+     unsigned char loops = 4;
+     
+     if (this->mode == FAST) {
+            // if we are in FAST mode, we only need a delay of 30us (~1.5 bytes at 400kHz)
+            loops = 1;
+        } 
+     for(unsigned char x = 0; x < loops; x++) {
+         for(int i = 0; i < delayCycles; i++) {
+             __no_operation();
+         }
+     }
 }
 
 /**** ISR/IRQ Handles ****/

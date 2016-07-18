@@ -67,6 +67,8 @@ extern void EUSCIB3_IRQHandler( void );
 class DWire {
 private:
 
+    uint32_t delayCycles;
+
     volatile uint8_t * pTxBufferIndex;
     uint8_t * pTxBuffer;
     volatile uint8_t * pTxBufferSize;
@@ -102,9 +104,10 @@ private:
     void _initMaster( const eUSCI_I2C_MasterConfig * );
     void _initSlave( void );
     void _setSlaveAddress( uint_fast8_t );
+    
 
 public:
-
+void _I2CDelay( void );
     uint_fast32_t module;
 
     /* Constructors */
