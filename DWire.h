@@ -104,10 +104,10 @@ private:
     void _initMaster( const eUSCI_I2C_MasterConfig * );
     void _initSlave( void );
     void _setSlaveAddress( uint_fast8_t );
-    
+    void _I2CDelay( void );    
 
 public:
-void _I2CDelay( void );
+
     uint_fast32_t module;
 
     /* Constructors */
