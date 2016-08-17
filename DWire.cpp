@@ -150,8 +150,8 @@ CREATEBUFFERS(3)
 
 // Fast mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
-        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
-        MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
+EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
         0,                                       // No byte counter threshold
         EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
@@ -159,8 +159,8 @@ const eUSCI_I2C_MasterConfig i2cConfigFastMode = {
 
 // Standard mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigStandardMode = {
-        EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
-        MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
+EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
         EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
         0,                                       // No byte counter threshold
         EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
@@ -211,12 +211,12 @@ void DWire::begin( ) {
     } else {
         _initMaster(&i2cConfigStandardMode);
     }
-    
+
     // calculate the number of iterations of a loop to generate
     // a delay based on clock speed
     // this is needed to handle NACKs in a way that is independent
     // of CPU speed and OS (Energia or not)
-    delayCycles = MAP_CS_getMCLK() * 30 / 7905857;
+    delayCycles = MAP_CS_getMCLK( ) * 30 / 7905857;
 }
 
 void DWire::setStandardMode( ) {
@@ -286,10 +286,10 @@ bool DWire::endTransmission( bool sendStop ) {
 
     // Clear the interrupt flags and enable
     MAP_I2C_clearInterruptFlag(module,
-            EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
     MAP_I2C_enableInterrupt(module,
-            EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
     // Set the master into transmit mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
@@ -305,9 +305,9 @@ bool DWire::endTransmission( bool sendStop ) {
         ;
 
     if ( gotNAK ) {
-        _I2CDelay();
-        MAP_I2C_masterReceiveMultiByteStop(module); 
-    } 
+        _I2CDelay( );
+        MAP_I2C_masterReceiveMultiByteStop(module);
+    }
     return gotNAK;
 }
 
@@ -334,10 +334,9 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     // and make sure we never request 1 byte only
     // this is an anomalous behaviour of the MSP432 related to the double
     // buffering of I2C. This is a workaround.
-    if(numBytes == 1) {
+    if ( numBytes == 1 ) {
         *pRxBufferSize = 2;
-    }
-    else {
+    } else {
         *pRxBufferSize = numBytes;
     }
     *pRxBufferIndex = 0;
@@ -347,9 +346,9 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     this->slaveAddress = slaveAddress;
 
     MAP_I2C_clearInterruptFlag(module,
-            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
     MAP_I2C_enableInterrupt(module,
-            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
 
     // Set the master into receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
@@ -364,8 +363,8 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     // Send a stop early if we're only requesting one byte
     // to prevent timing issues
     //if ( numBytes == 1 ) {
-        //while ( MAP_I2C_masterIsStartSent(module) )
-        //    ;
+    //while ( MAP_I2C_masterIsStartSent(module) )
+    //    ;
     //    MAP_I2C_masterReceiveMultiByteStop(module);
     //}
 
@@ -377,14 +376,14 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     (*pRxBufferIndex) = 0;
     (*pRxBufferSize) = 0;
 
-stopCounter = 0;
+    stopCounter = 0;
 
     if ( gotNAK ) {
-        _I2CDelay();
-        MAP_I2C_masterReceiveMultiByteStop(module); 
+        _I2CDelay( );
+        MAP_I2C_masterReceiveMultiByteStop(module);
         return 0;
     } else {
-        if(numBytes == 1)
+        if ( numBytes == 1 )
             return rxReadLength--;
         else
             return rxReadLength;
@@ -528,7 +527,8 @@ void DWire::_initMain( void ) {
         pRxBufferIndex = &EUSCIB3_rxBufferIndex;
         pRxBufferSize = &EUSCIB3_rxBufferSize;
 
-        modulePort = EUSCI_B3_PORT;
+        modulePort = EUSCI_B3_PORT
+        ;
         modulePins = EUSCI_B3_PINS;
 
         intModule = INT_EUSCIB3;
@@ -548,7 +548,7 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 
     // Initialise the pins
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-            GPIO_PRIMARY_MODULE_FUNCTION);
+    GPIO_PRIMARY_MODULE_FUNCTION);
 
     // Initializing I2C Master to SMCLK with no autostop
     MAP_I2C_initMaster(module, i2cConfig);
@@ -575,11 +575,11 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 void DWire::_initSlave( void ) {
     // Init the pins
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-            GPIO_PRIMARY_MODULE_FUNCTION);
+    GPIO_PRIMARY_MODULE_FUNCTION);
 
     // initialise driverlib
     MAP_I2C_initSlave(module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
-            EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
+    EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
 
     // Enable the module and enable interrupts
     MAP_I2C_enableModule(module);
@@ -676,22 +676,22 @@ bool DWire::_isSendStop( void ) {
 }
 
 void DWire::_I2CDelay( void ) {
-     // delay for 1.5 byte-times and send the stop
-     // this is needed because the MSP432 ignores any 
-     // stop if the byte is being received / transmitted
-     
-     // if we are in STANDARD mode we need ~120us (4x 30us)
-     unsigned char loops = 4;
-     
-     if (this->mode == FAST) {
-            // if we are in FAST mode, we only need a delay of 30us (~1.5 bytes at 400kHz)
-            loops = 1;
-        } 
-     for(unsigned char x = 0; x < loops; x++) {
-         for(int i = 0; i < delayCycles; i++) {
-             __no_operation();
-         }
-     }
+    // delay for 1.5 byte-times and send the stop
+    // this is needed because the MSP432 ignores any
+    // stop if the byte is being received / transmitted
+
+    // if we are in STANDARD mode we need ~120us (4x 30us)
+    unsigned char loops = 4;
+
+    if ( this->mode == FAST ) {
+        // if we are in FAST mode, we only need a delay of 30us (~1.5 bytes at 400kHz)
+        loops = 1;
+    }
+    for ( unsigned char x = 0; x < loops; x++ ) {
+        for ( int i = 0; i < delayCycles; i++ ) {
+            __no_operation();
+        }
+    }
 }
 
 /**** ISR/IRQ Handles ****/
@@ -722,18 +722,19 @@ void EUSCIB1_IRQHandler( void ) {
     status = MAP_I2C_getEnabledInterruptStatus(EUSCI_B1_BASE);
     MAP_I2C_clearInterruptFlag(EUSCI_B1_BASE, status);
 
+    // Get a reference to the correct instance
     DWire * instance = instances[1];
 
     /* Handle a NAK */
     if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
         //MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);  
-    stopCounter++;
+        stopCounter++;
         // Disable all other interrupts
         MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
                 EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_TRANSMIT_INTERRUPT0
                         | EUSCI_B_I2C_NAK_INTERRUPT);
-                        
-                        EUSCIB1_txBufferIndex = 0;
+
+        EUSCIB1_txBufferIndex = 0;
         EUSCIB1_rxBufferIndex = 0;
         if ( instance )
             instance->_finishRequest(true);
@@ -744,48 +745,58 @@ void EUSCIB1_IRQHandler( void ) {
     /* RXIFG */
     /* Triggered when data has been received */
     if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) {
-        EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] =
-                MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
-        EUSCIB1_rxBufferIndex++;
+        /* If we're a master, then we're handling the slave response after/during a request */
+        if ( instance->isMaster( ) ) {
+            EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] =
+            MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
+            EUSCIB1_rxBufferIndex++;
 
-        if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1 ) {
-            MAP_I2C_masterReceiveMultiByteStop (EUSCI_B1_BASE);
-            stopCounter++;
-        }
-
-        if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
-            if ( instance ) {
-                // Disable the RX interrupt
-                MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
-                        EUSCI_B_I2C_RECEIVE_INTERRUPT0
-                                | EUSCI_B_I2C_NAK_INTERRUPT);
-                // Mark the request as done
-                instance->_finishRequest( );
+            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1 ) {
+                MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
+                stopCounter++;
             }
+
+            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize ) {
+                if ( instance ) {
+                    // Disable the RX interrupt
+                    MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
+                    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+                    // Mark the request as done
+                    instance->_finishRequest( );
+                }
+            }
+            /* If we're a slave, then we're receiving data from the master */
+        } else {
+            EUSCIB1_rxBuffer[EUSCIB1_rxBufferIndex] = MAP_I2C_slaveGetData(
+                    EUSCI_B1_BASE);
+            EUSCIB1_rxBufferIndex++;
         }
     }
 
     /* As master: triggered when a byte has been transmitted */
-    /* As slave: triggered on request */
     if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) {
         /* If the module is setup as a master, then we're transmitting data */
-        if ( EUSCIB1_txBufferIndex == 1 ) {
-            // Send a STOP condition if required
-            if ( instance->_isSendStop( ) ) {
-                MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
-            }
-            // Disable the TX interrupt
-            MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
-                    EUSCI_B_I2C_TRANSMIT_INTERRUPT0
-                            + EUSCI_B_I2C_NAK_INTERRUPT);
-            EUSCIB1_txBufferIndex--;
+        if ( instance->isMaster( ) ) {
+            if ( EUSCIB1_txBufferIndex == 1 ) {
+                // Send a STOP condition if required
+                if ( instance->_isSendStop( ) ) {
+                    MAP_I2C_masterSendMultiByteStop(EUSCI_B1_BASE);
+                }
+                // Disable the TX interrupt
+                MAP_I2C_disableInterrupt(EUSCI_B1_BASE,
+                EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+                EUSCIB1_txBufferIndex--;
 
-        } else if ( EUSCIB1_txBufferIndex > 1 ) {
-            /* If we still have data left in the buffer, then transmit that */
-            MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
-                    EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
-                            - (EUSCIB1_txBufferIndex) + 1]);
-            EUSCIB1_txBufferIndex--;
+            } else if ( EUSCIB1_txBufferIndex > 1 ) {
+                /* If we still have data left in the buffer, then transmit that */
+                MAP_I2C_masterSendMultiByteNext(EUSCI_B1_BASE,
+                        EUSCIB1_txBuffer[(EUSCIB1_txBufferSize)
+                                - (EUSCIB1_txBufferIndex) + 1]);
+                EUSCIB1_txBufferIndex--;
+            }
+            /* If we're a slave, then we're handling a request from the master */
+        } else {
+            instance->_handleRequestSlave( );
         }
     }
 
@@ -793,7 +804,6 @@ void EUSCIB1_IRQHandler( void ) {
     if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) {
         if ( instance ) {
             if ( EUSCIB1_txBufferIndex != 0 && !instance->isMaster( ) ) {
-                MAP_I2C_slavePutData(EUSCI_B1_BASE, 0);
                 EUSCIB1_rxBufferIndex = 0;
                 EUSCIB1_rxBufferSize = 0;
             } else if ( EUSCIB1_rxBufferIndex != 0 ) {
