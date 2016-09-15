@@ -16,10 +16,10 @@
 #define DWIRE_DWIRE_H_
 
 
-#define USING_EUSCI_B0
+#undef USING_EUSCI_B0
 #define USING_EUSCI_B1
-#define USING_EUSCI_B2
-#define USING_EUSCI_B3
+#undef USING_EUSCI_B2
+#undef USING_EUSCI_B3
 
 
 // Similar for the roles
@@ -44,7 +44,9 @@
 /* Device specific includes */
 #include "inc/dwire_pins.h"
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 #ifdef USING_EUSCI_B0
 extern void EUSCIB0_IRQHandler( void );
 #endif
@@ -60,8 +62,9 @@ extern void EUSCIB2_IRQHandler( void );
 #ifdef USING_EUSCI_B3
 extern void EUSCIB3_IRQHandler( void );
 #endif
+#ifdef __cplusplus
 }
-
+#endif
 
 /* Main class definition */
 class DWire {
