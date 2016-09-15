@@ -328,8 +328,6 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
             ;
     }
 
-    bool reqSingleByte = false;
-
     // Re-initialise the rx buffer
     // and make sure we never request 1 byte only
     // this is an anomalous behaviour of the MSP432 related to the double
@@ -607,25 +605,26 @@ void DWire::_setSlaveAddress( uint_fast8_t newAddress ) {
  */
 void DWire::_handleRequestSlave( void ) {
     // Check whether a user interrupt has been set
-    if ( !user_onRequest )
-        return;
+    //if ( !user_onRequest )
+    //    return;
 
     // If no message has been set, then call the user interrupt to set
     if ( !(*pTxBufferIndex) ) {
         user_onRequest( );
 
-        *pTxBufferSize = *pTxBufferIndex;
+        *pTxBufferSize = *pTxBufferIndex - 1;
         *pTxBufferIndex = 0;
     }
 
     // If we've transmitted the entire message, then reset the tx buffer
-    if ( *pTxBufferIndex > *pTxBufferSize ) {
+    if ( *pTxBufferIndex > *pTxBufferSize) {
         *pTxBufferIndex = 0;
         *pTxBufferSize = 0;
     } else {
         // Transmit a byte
         MAP_I2C_slavePutData(module, pTxBuffer[*pTxBufferIndex]);
         (*pTxBufferIndex)++;
+        //MAP_I2C_slavePutData(EUSCI_B1_BASE, 2);
     }
 }
 
@@ -751,7 +750,7 @@ void EUSCIB1_IRQHandler( void ) {
             MAP_I2C_masterReceiveMultiByteNext(EUSCI_B1_BASE);
             EUSCIB1_rxBufferIndex++;
 
-            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1 ) {
+            if ( EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 2 ) {
                 MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
                 stopCounter++;
             }
@@ -797,6 +796,7 @@ void EUSCIB1_IRQHandler( void ) {
             /* If we're a slave, then we're handling a request from the master */
         } else {
             instance->_handleRequestSlave( );
+            //MAP_I2C_slavePutData(EUSCI_B1_BASE, 1);
         }
     }
 
