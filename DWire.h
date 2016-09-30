@@ -34,12 +34,7 @@
 #define TX_BUFFER_SIZE 32
 #define RX_BUFFER_SIZE 32
 
-/* Driverlib */
-#ifdef ENERGIA
-#include "driverlib/driverlib.h"
-#else
-#include "driverlib.h"
-#endif
+#include <driverlib.h>
 
 /* Device specific includes */
 #include "inc/dwire_pins.h"
