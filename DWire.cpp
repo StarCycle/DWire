@@ -15,6 +15,9 @@
 #include "DWire.h"
 
 volatile unsigned char stopCounter = 0;
+
+#define TIMEOUTLIMIT 0xFFFF
+
 /**** MACROs ****/
 
 /**
@@ -130,13 +133,13 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
 /* A data structure containing pointers to relevant buffers
  * to be used by ISRs. */
 typedef struct {
-    uint32_t module;
-    uint8_t * rxBuffer;
-    uint8_t * rxBufferIndex;
-    uint8_t * rxBufferSize;
-    uint8_t * txBuffer;
-    uint8_t * txBufferIndex;
-    uint8_t * txBufferSize;
+        uint32_t module;
+        uint8_t * rxBuffer;
+        uint8_t * rxBufferIndex;
+        uint8_t * rxBufferSize;
+        uint8_t * txBuffer;
+        uint8_t * txBufferIndex;
+        uint8_t * txBufferSize;
 } IRQParam;
 
 /**** GLOBAL VARIABLES ****/
@@ -150,7 +153,7 @@ CREATEBUFFERS(0)
 #endif
 
 #ifdef USING_EUSCI_B1
-CREATEBUFFERS(1)
+CREATEBUFFERS( 1 )
 #endif
 
 #ifdef USING_EUSCI_B2
@@ -194,19 +197,19 @@ DWire::DWire( ) {
 DWire::~DWire( ) {
     // Deregister from the moduleMap
     // Using a switch statement now, but we can make this simpler by using module = 0,1,2,3
-    switch ( module ) {
-    case EUSCI_B0_BASE:
-        instances[0] = 0;
-        break;
-    case EUSCI_B1_BASE:
-        instances[1] = 0;
-        break;
-    case EUSCI_B2_BASE:
-        instances[2] = 0;
-        break;
-    case EUSCI_B3_BASE:
-        instances[3] = 0;
-        break;
+    switch (module) {
+        case EUSCI_B0_BASE:
+            instances[0] = 0;
+            break;
+        case EUSCI_B1_BASE:
+            instances[1] = 0;
+            break;
+        case EUSCI_B2_BASE:
+            instances[2] = 0;
+            break;
+        case EUSCI_B3_BASE:
+            instances[3] = 0;
+            break;
     }
 }
 
@@ -219,10 +222,10 @@ void DWire::begin( ) {
     slaveAddress = 0;
     _initMain( );
 
-    if ( mode == FAST ) {
-        _initMaster(&i2cConfigFastMode);
+    if (mode == FAST) {
+        _initMaster( &i2cConfigFastMode );
     } else {
-        _initMaster(&i2cConfigStandardMode);
+        _initMaster( &i2cConfigStandardMode );
     }
 
     // calculate the number of iterations of a loop to generate
@@ -256,70 +259,84 @@ void DWire::begin( uint8_t address ) {
  */
 void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
     // Starting a transmission as a master to the slave at slaveAddress
-    if ( busRole != BUS_ROLE_MASTER )
+    if (busRole != BUS_ROLE_MASTER)
         return;
 
     // Wait in case a previous message is still being sent
-    while ( *pTxBufferIndex > 0 )
+    while (*pTxBufferIndex > 0)
         ;
 
-    if ( slaveAddress != this->slaveAddress )
-        _setSlaveAddress(slaveAddress);
+    if (slaveAddress != this->slaveAddress)
+        _setSlaveAddress( slaveAddress );
 }
 
 /**
  * Write a single byte
  */
-void DWire::write( uint8_t dataByte ) {
+void DWire::write( uint_fast8_t dataByte ) {
     // Add data to the tx buffer
     pTxBuffer[*pTxBufferIndex] = dataByte;
     (*pTxBufferIndex)++;
 }
 
 bool DWire::endTransmission( void ) {
-    return endTransmission(true);
+    return endTransmission( true );
 }
 
 /**
  * End the transmission and transmit the tx buffer's contents over the bus
  */
 bool DWire::endTransmission( bool sendStop ) {
-
+    uint32_t timeout;
     // return, if there is nothing to transmit
-    if ( !*pTxBufferIndex ) {
+    if (!*pTxBufferIndex) {
         return 0;
     }
 
     // Wait until any ongoing (incoming) transmissions are finished
-    while ( MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP )
-        ;
+    timeout = 0xFFFF;
+    while ( MAP_I2C_masterIsStopSent( module ) == EUSCI_B_I2C_SENDING_STOP
+            && timeout)
+        timeout--;
+
+    if (!timeout) {
+        /* If we can't start the transmission, then reset everything */
+        _resetBus( );
+        return false;
+    }
 
     this->sendStop = sendStop;
     gotNAK = false;
 
     // Clear the interrupt flags and enable
-    MAP_I2C_clearInterruptFlag(module,
-    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+    MAP_I2C_clearInterruptFlag( module,
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT );
 
-    MAP_I2C_enableInterrupt(module,
-    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+    MAP_I2C_enableInterrupt( module,
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT );
 
     // Set the master into transmit mode
-    MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
+    MAP_I2C_setMode( module, EUSCI_B_I2C_TRANSMIT_MODE );
 
     // Send the start condition and initial byte
     (*pTxBufferSize) = *pTxBufferIndex;
 
     // Send the first byte, triggering the TX interrupt
-    MAP_I2C_masterSendMultiByteStart(module, pTxBuffer[0]);
+    MAP_I2C_masterSendMultiByteStartWithTimeout( module, pTxBuffer[0], 50000 );
 
     // make sure the transmitter buffer has been flushed
-    while ( *pTxBufferIndex )
-        ;
+    timeout = TIMEOUTLIMIT;
+    while (*pTxBufferIndex && timeout)
+        timeout--;
 
-    if ( gotNAK ) {
+    if (!timeout) {
+        _resetBus( );
+        return false;
+    }
+
+    if (gotNAK) {
         _I2CDelay( );
-        MAP_I2C_masterReceiveMultiByteStop(module);
+        MAP_I2C_masterReceiveMultiByteStop( module );
     }
     return gotNAK;
 }
@@ -328,24 +345,33 @@ bool DWire::endTransmission( bool sendStop ) {
  * Request data from a SLAVE as a MASTER
  */
 uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
+    uint32_t timeout;
     // No point of doing anything else if there we're not a MASTER
-    if ( busRole != BUS_ROLE_MASTER )
+    if (busRole != BUS_ROLE_MASTER)
         return 0;
 
     // still something to send? Flush the TX buffer but do not send a STOP
-    if ( *pTxBufferIndex > 0 ) {
-        endTransmission(false);
+    if (*pTxBufferIndex > 0) {
+        endTransmission( false );
     } else {
         // Wait until any request is finished
-        while ( MAP_I2C_masterIsStopSent(module) == EUSCI_B_I2C_SENDING_STOP )
-            ;
+        timeout = TIMEOUTLIMIT;
+        while ( MAP_I2C_masterIsStopSent( module ) == EUSCI_B_I2C_SENDING_STOP
+                && timeout)
+            timeout--;
+    }
+
+    if (!timeout) {
+        /* If we get a timeout, then reset everything */
+        _resetBus( );
+        return 0;
     }
 
     // Re-initialise the rx buffer
     // and make sure we never request 1 byte only
     // this is an anomalous behaviour of the MSP432 related to the double
     // buffering of I2C. This is a workaround.
-    if ( numBytes == 1 ) {
+    if (numBytes == 1) {
         *pRxBufferSize = 2;
     } else {
         *pRxBufferSize = numBytes;
@@ -353,23 +379,23 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     *pRxBufferIndex = 0;
 
     // Configure the correct slave
-    MAP_I2C_setSlaveAddress(module, slaveAddress);
+    MAP_I2C_setSlaveAddress( module, slaveAddress );
     this->slaveAddress = slaveAddress;
 
-    MAP_I2C_clearInterruptFlag(module,
-    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
-    MAP_I2C_enableInterrupt(module,
-    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT);
+    MAP_I2C_clearInterruptFlag( module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT );
+    MAP_I2C_enableInterrupt( module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT );
 
     // Set the master into receive mode
-    MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
+    MAP_I2C_setMode( module, EUSCI_B_I2C_RECEIVE_MODE );
 
     // Initialize the flag showing the status of the request
     requestDone = false;
     gotNAK = false;
 
     // Send the START
-    MAP_I2C_masterReceiveStart(module);
+    MAP_I2C_masterReceiveStart( module );
 
     // Send a stop early if we're only requesting one byte
     // to prevent timing issues
@@ -380,8 +406,15 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
     //}
 
     // Wait until the request is done
-    while ( !requestDone )
-        ;
+    timeout = TIMEOUTLIMIT;
+    while (!requestDone && timeout)
+        timeout--;
+
+    if (!timeout) {
+        /* If we get a timeout, then reset everything */
+        _resetBus( );
+        return 0;
+    }
 
     // Reset the buffer
     (*pRxBufferIndex) = 0;
@@ -389,12 +422,12 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
 
     stopCounter = 0;
 
-    if ( gotNAK ) {
+    if (gotNAK) {
         _I2CDelay( );
-        MAP_I2C_masterReceiveMultiByteStop(module);
+        MAP_I2C_masterReceiveMultiByteStop( module );
         return 0;
     } else {
-        if ( numBytes == 1 )
+        if (numBytes == 1)
             return rxReadLength--;
         else
             return rxReadLength;
@@ -407,14 +440,14 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
 uint8_t DWire::read( void ) {
 
     // Wait if there is nothing to read
-    while ( rxReadIndex == 0 && rxReadLength == 0 )
+    while (rxReadIndex == 0 && rxReadLength == 0)
         ;
 
     uint8_t byte = rxLocalBuffer[rxReadIndex];
     rxReadIndex++;
 
     // Check whether this was the last byte. If so, reset.
-    if ( rxReadIndex == rxReadLength ) {
+    if (rxReadIndex == rxReadLength) {
         rxReadIndex = 0;
         rxReadLength = 0;
     }
@@ -440,7 +473,7 @@ void DWire::onReceive( void (*islHandle)( uint8_t ) ) {
  * Returns true if the module is configured as a master
  */
 bool DWire::isMaster( void ) {
-    if ( busRole == BUS_ROLE_MASTER ) {
+    if (busRole == BUS_ROLE_MASTER) {
         return true;
     } else {
         return false;
@@ -461,94 +494,94 @@ void DWire::_initMain( void ) {
     requestDone = false;
     sendStop = true;
 
-    switch ( module ) {
+    switch (module) {
 #ifdef USING_EUSCI_B0
-    case EUSCI_B0_BASE:
+        case EUSCI_B0_BASE:
 
-    instances[0] = this;
+        instances[0] = this;
 
-    pTxBuffer = EUSCIB0_txBuffer;
-    pTxBufferIndex = &EUSCIB0_txBufferIndex;
-    pTxBufferSize = &EUSCIB0_txBufferSize;
+        pTxBuffer = EUSCIB0_txBuffer;
+        pTxBufferIndex = &EUSCIB0_txBufferIndex;
+        pTxBufferSize = &EUSCIB0_txBufferSize;
 
-    pRxBuffer = EUSCIB0_rxBuffer;
-    pRxBufferIndex = &EUSCIB0_rxBufferIndex;
-    pRxBufferSize = &EUSCIB0_rxBufferSize;
+        pRxBuffer = EUSCIB0_rxBuffer;
+        pRxBufferIndex = &EUSCIB0_rxBufferIndex;
+        pRxBufferSize = &EUSCIB0_rxBufferSize;
 
-    modulePort = EUSCI_B0_PORT;
-    modulePins = EUSCI_B0_PINS;
+        modulePort = EUSCI_B0_PORT;
+        modulePins = EUSCI_B0_PINS;
 
-    intModule = INT_EUSCIB0;
+        intModule = INT_EUSCIB0;
 
-    MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
-    break;
+        MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+        break;
 #endif
 #ifdef USING_EUSCI_B1
-    case EUSCI_B1_BASE:
+        case EUSCI_B1_BASE:
 
-        instances[1] = this;
+            instances[1] = this;
 
-        pTxBuffer = EUSCIB1_txBuffer;
-        pTxBufferIndex = &EUSCIB1_txBufferIndex;
-        pTxBufferSize = &EUSCIB1_txBufferSize;
+            pTxBuffer = EUSCIB1_txBuffer;
+            pTxBufferIndex = &EUSCIB1_txBufferIndex;
+            pTxBufferSize = &EUSCIB1_txBufferSize;
 
-        pRxBuffer = EUSCIB1_rxBuffer;
-        pRxBufferIndex = &EUSCIB1_rxBufferIndex;
-        pRxBufferSize = &EUSCIB1_rxBufferSize;
+            pRxBuffer = EUSCIB1_rxBuffer;
+            pRxBufferIndex = &EUSCIB1_rxBufferIndex;
+            pRxBufferSize = &EUSCIB1_rxBufferSize;
 
-        modulePort = EUSCI_B1_PORT;
-        modulePins = EUSCI_B1_PINS;
+            modulePort = EUSCI_B1_PORT;
+            modulePins = EUSCI_B1_PINS;
 
-        intModule = INT_EUSCIB1;
+            intModule = INT_EUSCIB1;
 
-        MAP_I2C_registerInterrupt(module, EUSCIB1_IRQHandler);
-        break;
+            MAP_I2C_registerInterrupt( module, EUSCIB1_IRQHandler );
+            break;
 #endif
 #ifdef USING_EUSCI_B2
-        case EUSCI_B2_BASE:
+            case EUSCI_B2_BASE:
 
-        instances[2] = this;
+            instances[2] = this;
 
-        pTxBuffer = EUSCIB2_txBuffer;
-        pTxBufferIndex = &EUSCIB2_txBufferIndex;
-        pTxBufferSize = &EUSCIB2_txBufferSize;
+            pTxBuffer = EUSCIB2_txBuffer;
+            pTxBufferIndex = &EUSCIB2_txBufferIndex;
+            pTxBufferSize = &EUSCIB2_txBufferSize;
 
-        pRxBuffer = EUSCIB2_rxBuffer;
-        pRxBufferIndex = &EUSCIB2_rxBufferIndex;
-        pRxBufferSize = &EUSCIB2_rxBufferSize;
+            pRxBuffer = EUSCIB2_rxBuffer;
+            pRxBufferIndex = &EUSCIB2_rxBufferIndex;
+            pRxBufferSize = &EUSCIB2_rxBufferSize;
 
-        modulePort = EUSCI_B2_PORT;
-        modulePins = EUSCI_B2_PINS;
+            modulePort = EUSCI_B2_PORT;
+            modulePins = EUSCI_B2_PINS;
 
-        intModule = INT_EUSCIB2;
+            intModule = INT_EUSCIB2;
 
-        MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
-        break;
+            MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
+            break;
 #endif
 #ifdef USING_EUSCI_B3
-        case EUSCI_B3_BASE:
+            case EUSCI_B3_BASE:
 
-        instances[3] = this;
+            instances[3] = this;
 
-        pTxBuffer = EUSCIB3_txBuffer;
-        pTxBufferIndex = &EUSCIB3_txBufferIndex;
-        pTxBufferSize = &EUSCIB3_txBufferSize;
+            pTxBuffer = EUSCIB3_txBuffer;
+            pTxBufferIndex = &EUSCIB3_txBufferIndex;
+            pTxBufferSize = &EUSCIB3_txBufferSize;
 
-        pRxBuffer = EUSCIB3_rxBuffer;
-        pRxBufferIndex = &EUSCIB3_rxBufferIndex;
-        pRxBufferSize = &EUSCIB3_rxBufferSize;
+            pRxBuffer = EUSCIB3_rxBuffer;
+            pRxBufferIndex = &EUSCIB3_rxBufferIndex;
+            pRxBufferSize = &EUSCIB3_rxBufferSize;
 
-        modulePort = EUSCI_B3_PORT
-        ;
-        modulePins = EUSCI_B3_PINS;
+            modulePort = EUSCI_B3_PORT
+            ;
+            modulePins = EUSCI_B3_PINS;
 
-        intModule = INT_EUSCIB3;
+            intModule = INT_EUSCIB3;
 
-        MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
-        break;
+            MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
+            break;
 #endif
-    default:
-        return;
+        default:
+            return;
     }
 }
 
@@ -558,50 +591,50 @@ void DWire::_initMain( void ) {
 void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 
     // Initialise the pins
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-    GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin( modulePort, modulePins,
+    GPIO_PRIMARY_MODULE_FUNCTION );
 
     // Initializing I2C Master to SMCLK with no autostop
-    MAP_I2C_initMaster(module, i2cConfig);
+    MAP_I2C_initMaster( module, i2cConfig );
 
     // Specify slave address
-    MAP_I2C_setSlaveAddress(module, slaveAddress);
+    MAP_I2C_setSlaveAddress( module, slaveAddress );
 
     // Set Master in transmit mode
-    MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
+    MAP_I2C_setMode( module, EUSCI_B_I2C_TRANSMIT_MODE );
 
     // Enable I2C Module to start operations
-    MAP_I2C_enableModule(module);
+    MAP_I2C_enableModule( module );
 
     // Clear the interrupt flag
-    MAP_I2C_clearInterruptFlag(module,
+    MAP_I2C_clearInterruptFlag( module,
             EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT
-                    + EUSCI_B_I2C_RECEIVE_INTERRUPT0);
+                    + EUSCI_B_I2C_RECEIVE_INTERRUPT0 );
 
     // Register the interrupts on the correct module
-    MAP_Interrupt_enableInterrupt(intModule);
+    MAP_Interrupt_enableInterrupt( intModule );
     MAP_Interrupt_enableMaster( );
 }
 
 void DWire::_initSlave( void ) {
     // Init the pins
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(modulePort, modulePins,
-    GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin( modulePort, modulePins,
+    GPIO_PRIMARY_MODULE_FUNCTION );
 
     // initialise driverlib
-    MAP_I2C_initSlave(module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
-    EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
+    MAP_I2C_initSlave( module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
+    EUSCI_B_I2C_OWN_ADDRESS_ENABLE );
 
     // Enable the module and enable interrupts
-    MAP_I2C_enableModule(module);
-    MAP_I2C_clearInterruptFlag(module,
+    MAP_I2C_enableModule( module );
+    MAP_I2C_clearInterruptFlag( module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT
-                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-    MAP_I2C_enableInterrupt(module,
+                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 );
+    MAP_I2C_enableInterrupt( module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT
-                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
+                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 );
 
-    MAP_Interrupt_enableInterrupt(intModule);
+    MAP_Interrupt_enableInterrupt( intModule );
     MAP_Interrupt_enableMaster( );
 }
 
@@ -610,7 +643,7 @@ void DWire::_initSlave( void ) {
  */
 void DWire::_setSlaveAddress( uint_fast8_t newAddress ) {
     slaveAddress = newAddress;
-    MAP_I2C_setSlaveAddress(module, newAddress);
+    MAP_I2C_setSlaveAddress( module, newAddress );
 }
 
 /**
@@ -622,7 +655,7 @@ void DWire::_handleRequestSlave( void ) {
     //    return;
 
     // If no message has been set, then call the user interrupt to set
-    if ( !(*pTxBufferIndex) ) {
+    if (!(*pTxBufferIndex)) {
         user_onRequest( );
 
         *pTxBufferSize = *pTxBufferIndex - 1;
@@ -630,12 +663,12 @@ void DWire::_handleRequestSlave( void ) {
     }
 
     // If we've transmitted the entire message, then reset the tx buffer
-    if ( *pTxBufferIndex > *pTxBufferSize ) {
+    if (*pTxBufferIndex > *pTxBufferSize) {
         *pTxBufferIndex = 0;
         *pTxBufferSize = 0;
     } else {
         // Transmit a byte
-        MAP_I2C_slavePutData(module, pTxBuffer[*pTxBufferIndex]);
+        MAP_I2C_slavePutData( module, pTxBuffer[*pTxBufferIndex] );
         (*pTxBufferIndex)++;
     }
 }
@@ -645,29 +678,29 @@ void DWire::_handleRequestSlave( void ) {
  */
 void DWire::_handleReceive( uint8_t * rxBuffer ) {
     // No need to do anything if there is no handler registered
-    if ( !user_onReceive )
+    if (!user_onReceive)
         return;
 
     // Check whether the user application is still reading out the local buffer.
     // This needs to be tested to make sure it doesn't give any problems.
-    if ( rxReadIndex != 0 && rxReadLength != 0 )
+    if (rxReadIndex != 0 && rxReadLength != 0)
         return;
 
     // Copy the main buffer into a local buffer
     rxReadLength = *pRxBufferIndex;
     rxReadIndex = 0;
 
-    for ( int i = 0; i < rxReadLength; i++ )
+    for (int i = 0; i < rxReadLength; i++)
         this->rxLocalBuffer[i] = rxBuffer[i];
 
     // Reset the main buffer
     (*pRxBufferIndex) = 0;
 
-    user_onReceive(rxReadLength);
+    user_onReceive( rxReadLength );
 }
 
 void DWire::_finishRequest( void ) {
-    for ( int i = 0; i <= *pRxBufferSize; i++ ) {
+    for (int i = 0; i <= *pRxBufferSize; i++) {
         this->rxLocalBuffer[i] = pRxBuffer[i];
     }
     rxReadIndex = 0;
@@ -694,15 +727,28 @@ void DWire::_I2CDelay( void ) {
     // if we are in STANDARD mode we need ~120us (4x 30us)
     unsigned char loops = 4;
 
-    if ( this->mode == FAST ) {
+    if (this->mode == FAST) {
         // if we are in FAST mode, we only need a delay of 30us (~1.5 bytes at 400kHz)
         loops = 1;
     }
-    for ( unsigned char x = 0; x < loops; x++ ) {
-        for ( int i = 0; i < delayCycles; i++ ) {
+    for (unsigned char x = 0; x < loops; x++) {
+        for (int i = 0; i < delayCycles; i++) {
             __no_operation();
         }
     }
+}
+
+void DWire::_resetBus( void ) {
+    /* Reset buffers */
+    *pTxBufferIndex = 0;
+    *pTxBufferSize = 0;
+    *pRxBufferIndex = 0;
+    *pRxBufferSize = 0;
+
+    /* Reset the module */
+    MAP_I2C_disableModule( module );
+    MAP_I2C_enableModule( module );
+
 }
 
 /**** ISR/IRQ Handles ****/
@@ -726,7 +772,7 @@ extern "C" {
  */
 extern "C" {
 void EUSCIB1_IRQHandler( void ) {
-    IRQHANDLER(1)
+    IRQHANDLER( 1 )
 }
 
 /* USING_EUSCI_B1 */

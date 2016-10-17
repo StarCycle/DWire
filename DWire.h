@@ -15,12 +15,10 @@
 #ifndef DWIRE_DWIRE_H_
 #define DWIRE_DWIRE_H_
 
-
 #undef USING_EUSCI_B0
 #define USING_EUSCI_B1
 #undef USING_EUSCI_B2
 #undef USING_EUSCI_B3
-
 
 // Similar for the roles
 #define BUS_ROLE_MASTER 0
@@ -31,8 +29,8 @@
 #define FAST     1
 
 // Default buffer size in bytes
-#define TX_BUFFER_SIZE 32
-#define RX_BUFFER_SIZE 32
+#define TX_BUFFER_SIZE 64
+#define RX_BUFFER_SIZE 64
 
 /* Driverlib */
 #ifdef ENERGIA
@@ -90,7 +88,7 @@ private:
     volatile bool gotNAK;
 
     uint8_t mode;
-    
+
     uint8_t slaveAddress;
 
     uint8_t busRole;
@@ -107,7 +105,8 @@ private:
     void _initMaster( const eUSCI_I2C_MasterConfig * );
     void _initSlave( void );
     void _setSlaveAddress( uint_fast8_t );
-    void _I2CDelay( void );    
+    void _I2CDelay( void );
+    void _resetBus( void );
 
 public:
 
@@ -115,16 +114,16 @@ public:
 
     /* Constructors */
     DWire( uint_fast32_t );
-    DWire(  );
+    DWire( );
     ~DWire( void );
 
     /* MASTER specific */
-    void begin(  );
-    void setStandardMode(  );
-    void setFastMode(  );
+    void begin( );
+    void setStandardMode( );
+    void setFastMode( );
 
     void beginTransmission( uint_fast8_t );
-    void write( uint8_t );
+    void write( uint_fast8_t );
     bool endTransmission( void );
     bool endTransmission( bool );
 
@@ -149,6 +148,5 @@ public:
     bool _isSendStop( bool );
     bool _isSendStop( void );
 };
-
 
 #endif /* DWIRE_DWIRE_H_ */
