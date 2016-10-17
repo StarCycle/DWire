@@ -13,12 +13,7 @@
 #ifndef DWIRE_DSERIAL_H_
 #define DWIRE_DSERIAL_H_
 
-/* DRIVERLIB */
-#ifdef ENERGIA
-#include "driverlib/driverlib.h"
-#else
-#include "driverlib.h"
-#endif
+#include <driverlib.h>
 
 #ifndef DEC
 #define DEC 10
