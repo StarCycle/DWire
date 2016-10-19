@@ -12,6 +12,7 @@
  *
  */
 
+#include <msp.h>
 #include "DWire.h"
 
 volatile unsigned char stopCounter = 0;
@@ -57,6 +58,11 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
                     instance->_finishRequest(true); \
             } \
             \
+			\
+			/* Check for clock low interrupt: if it is low for too long, then reset the I2C peripheral */ \
+			if( status & EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT) { \
+				ResetCtl_initiateHardReset(); \
+			} \
             /* RXIFG */ \
             /* Triggered when data has been received */ \
             if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) { \
@@ -322,7 +328,8 @@ bool DWire::endTransmission( bool sendStop ) {
     (*pTxBufferSize) = *pTxBufferIndex;
 
     // Send the first byte, triggering the TX interrupt
-    MAP_I2C_masterSendMultiByteStartWithTimeout( module, pTxBuffer[0], 50000 );
+    MAP_I2C_masterSendMultiByteStartWithTimeout( module, pTxBuffer[0],
+    TIMEOUTLIMIT );
 
     // make sure the transmitter buffer has been flushed
     timeout = TIMEOUTLIMIT;
@@ -629,10 +636,14 @@ void DWire::_initSlave( void ) {
     MAP_I2C_enableModule( module );
     MAP_I2C_clearInterruptFlag( module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT
-                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 );
+                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 | EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT );
     MAP_I2C_enableInterrupt( module,
             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT
-                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 );
+                    | EUSCI_B_I2C_TRANSMIT_INTERRUPT0 | EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT );
+
+    /* Enable the clock low timeout */
+    EUSCI_B_CMSIS( module )->CTLW1 = (EUSCI_B_CMSIS( module )->CTLW1
+            & ~EUSCI_B_CTLW1_CLTO_MASK) | 0xC0;
 
     MAP_Interrupt_enableInterrupt( intModule );
     MAP_Interrupt_enableMaster( );
@@ -747,8 +758,23 @@ void DWire::_resetBus( void ) {
 
     /* Reset the module */
     MAP_I2C_disableModule( module );
-    MAP_I2C_enableModule( module );
 
+    /* Perform bus clear according to UM10204 section 3.1.16 */
+    if (this->isMaster( )) {
+        uint_fast16_t moduleSclPin = modulePins & (GPIO_PIN5 + GPIO_PIN7); // FIXME
+        MAP_GPIO_setOutputLowOnPin( modulePort, moduleSclPin );
+        for (uint_fast8_t i = 0; i < 9; i++) {
+            MAP_GPIO_setAsOutputPin( modulePort, moduleSclPin );
+            this->_I2CDelay( );
+            MAP_GPIO_setAsInputPin( modulePort, moduleSclPin );
+            this->_I2CDelay( );
+        }
+        MAP_GPIO_setAsPeripheralModuleFunctionInputPin( modulePort,
+                moduleSclPin, GPIO_PRIMARY_MODULE_FUNCTION );
+    }
+
+    /* Re-enable the module */
+    MAP_I2C_enableModule( module );
 }
 
 /**** ISR/IRQ Handles ****/
