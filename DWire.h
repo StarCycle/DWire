@@ -29,8 +29,8 @@
 #define FAST     1
 
 // Default buffer size in bytes
-#define TX_BUFFER_SIZE 64
-#define RX_BUFFER_SIZE 64
+#define TX_BUFFER_SIZE 256
+#define RX_BUFFER_SIZE 256
 
 #include <driverlib.h>
 
