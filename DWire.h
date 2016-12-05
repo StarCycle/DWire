@@ -27,6 +27,7 @@
 // define I2C speed
 #define STANDARD 0
 #define FAST     1
+#define FASTPLUS 2
 
 // Default buffer size in bytes
 #define TX_BUFFER_SIZE 256
@@ -116,6 +117,7 @@ public:
     void begin( );
     void setStandardMode( );
     void setFastMode( );
+    void setFastModePlus( );
 
     void beginTransmission( uint_fast8_t );
     void write( uint_fast8_t );

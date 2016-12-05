@@ -179,6 +179,15 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
         EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
         };
 
+// Fast mode plus eUSCI settings
+const eUSCI_I2C_MasterConfig i2cConfigFastModePlus = {
+EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                     // Get the SMCLK clock frequency
+        EUSCI_B_I2C_SET_DATA_RATE_1MBPS,       // Desired I2C Clock of 1MHz
+        0,                                       // No byte counter threshold
+        EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
+        };
+
 // Standard mode eUSCI settings
 const eUSCI_I2C_MasterConfig i2cConfigStandardMode = {
 EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
@@ -230,6 +239,8 @@ void DWire::begin( ) {
 
     if (mode == FAST) {
         _initMaster( &i2cConfigFastMode );
+    } else if(mode == FASTPLUS) {
+        _initMaster( &i2cConfigFastModePlus );
     } else {
         _initMaster( &i2cConfigStandardMode );
     }
@@ -247,6 +258,10 @@ void DWire::setStandardMode( ) {
 
 void DWire::setFastMode( ) {
     this->mode = FAST;
+}
+
+void DWire::setFastModePlus( ) {
+    this->mode = FASTPLUS;
 }
 
 void DWire::begin( uint8_t address ) {
