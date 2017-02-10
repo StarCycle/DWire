@@ -450,7 +450,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
         return 0;
     } else {
         if (numBytes == 1)
-            return rxReadLength--;
+            return rxReadLength - 1;
         else
             return rxReadLength;
     }
