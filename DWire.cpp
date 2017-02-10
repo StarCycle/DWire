@@ -450,7 +450,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
         return 0;
     } else {
         if (numBytes == 1)
-            return rxReadLength - 1;
+            return --rxReadLength;
         else
             return rxReadLength;
     }
@@ -461,12 +461,12 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) {
  */
 uint8_t DWire::read( void ) {
 
-    // Wait if there is nothing to read
-    while (rxReadIndex == 0 && rxReadLength == 0)
-        ;
+    // Return a 0 if there is nothing to read
+    if (rxReadLength == 0)
+        return 0;
 
     uint8_t byte = rxLocalBuffer[rxReadIndex];
-    rxReadIndex++;
+    rxReadIndex = (rxReadIndex + 1 ) % RX_BUFFER_SIZE;
 
     // Check whether this was the last byte. If so, reset.
     if (rxReadIndex == rxReadLength) {
