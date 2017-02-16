@@ -33,6 +33,7 @@
 #define TX_BUFFER_SIZE 256
 #define RX_BUFFER_SIZE 256
 
+#include <msp.h>
 #include <driverlib.h>
 
 /* Device specific includes */
