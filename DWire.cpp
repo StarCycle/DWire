@@ -43,6 +43,7 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
             \
             /* Get a reference to the correct instance */ \
             DWire * instance = instances[M]; \
+            /* add if instance false, return */ \
             \
             /* Handle a NAK */ \
             if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) { \
@@ -58,27 +59,35 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
                     instance->_finishRequest(true); \
             } \
             \
-			\
 			/* Check for clock low interrupt: if it is low for too long, then reset the I2C peripheral */ \
 			if( status & EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT) { \
 				ResetCtl_initiateHardReset(); \
 			} \
+			\
             /* RXIFG */ \
             /* Triggered when data has been received */ \
-            if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) { \
+            if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) \
+            { \
                 /* If we're a master, then we're handling the slave response after/during a request */ \
-                if ( instance->isMaster( ) ) { \
+                /* instance is used without checking it is non zero */ \
+                if ( instance->isMaster( ) ) \
+                { \
+                /* do range checking around this block to avoid possible errors */ \
                     EUSCIB## M ##_rxBuffer[EUSCIB## M ##_rxBufferIndex] = \
                     MAP_I2C_masterReceiveMultiByteNext(EUSCI_B## M ##_BASE); \
                     EUSCIB## M ##_rxBufferIndex++; \
                     \
-                    if ( EUSCIB## M ##_rxBufferIndex == EUSCIB## M ##_rxBufferSize - 1 ) { \
+                    /* if we only need to read 1 more byte, start sending a stop */ \
+                    if ( EUSCIB## M ##_rxBufferIndex == EUSCIB## M ##_rxBufferSize - 1 ) \
+                    { \
                         MAP_I2C_masterReceiveMultiByteStop(EUSCI_B## M ##_BASE); \
                         stopCounter++; \
                     } \
                     \
-                    if ( EUSCIB## M ##_rxBufferIndex == EUSCIB## M ##_rxBufferSize ) { \
-                        if ( instance ) { \
+                    if ( EUSCIB## M ##_rxBufferIndex == EUSCIB## M ##_rxBufferSize ) \
+                    { \
+                        if ( instance ) \
+                        { \
                             /* Disable the RX interrupt */ \
                             MAP_I2C_disableInterrupt(EUSCI_B## M ##_BASE, \
                             EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_NAK_INTERRUPT); \
@@ -87,7 +96,8 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
                         } \
                     } \
                     /* If we're a slave, then we're receiving data from the master */ \
-                } else { \
+                } else \
+                { \
                     EUSCIB## M ##_rxBuffer[EUSCIB## M ##_rxBufferIndex] = MAP_I2C_slaveGetData( \
                             EUSCI_B## M ##_BASE); \
                     EUSCIB1_rxBufferIndex++; \
@@ -95,12 +105,16 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
             } \
             \
             /* As master: triggered when a byte has been transmitted */ \
-            if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) { \
+            if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) \
+            { \
                 /* If the module is setup as a master, then we're transmitting data */ \
-                if ( instance->isMaster( ) ) { \
-                    if ( EUSCIB## M ##_txBufferIndex == 1 ) { \
+                if ( instance->isMaster( ) ) \
+                { \
+                    if ( EUSCIB## M ##_txBufferIndex == 1 ) \
+                    { \
                         /* Send a STOP condition if required */ \
-                        if ( instance->_isSendStop( ) ) { \
+                        if ( instance->_isSendStop( ) ) \
+                        { \
                             MAP_I2C_masterSendMultiByteStop(EUSCI_B## M ##_BASE); \
                         } \
                         /* Disable the TX interrupt */ \
@@ -108,7 +122,8 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
                         EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT); \
                         EUSCIB1_txBufferIndex--; \
                         \
-                    } else if ( EUSCIB## M ##_txBufferIndex > 1 ) { \
+                    } else if ( EUSCIB## M ##_txBufferIndex > 1 ) \
+                    { \
                         /* If we still have data left in the buffer, then transmit that */ \
                         MAP_I2C_masterSendMultiByteNext(EUSCI_B## M ##_BASE, \
                                 EUSCIB## M ##_txBuffer[(EUSCIB## M ##_txBufferSize) \
@@ -116,18 +131,23 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
                         EUSCIB## M ##_txBufferIndex--; \
                     } \
                     /* If we're a slave, then we're handling a request from the master */ \
-                } else { \
+                } else \
+                { \
                     instance->_handleRequestSlave( ); \
                 } \
             } \
             \
             /* STPIFG: Called when a STOP is received */ \
-            if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) { \
-                if ( instance ) { \
-                    if ( EUSCIB## M ##_txBufferIndex != 0 && !instance->isMaster( ) ) { \
+            if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) \
+            { \
+                if ( instance ) \
+                { \
+                    if ( EUSCIB## M ##_txBufferIndex != 0 && !instance->isMaster( ) ) \
+                    { \
                         EUSCIB## M ##_rxBufferIndex = 0; \
                         EUSCIB## M ##_rxBufferSize = 0; \
-                    } else if ( EUSCIB## M ##_rxBufferIndex != 0 ) { \
+                    } else if ( EUSCIB## M ##_rxBufferIndex != 0 ) \
+                    { \
                         instance->_handleReceive(EUSCIB## M ##_rxBuffer); \
                     } \
                 } \
@@ -198,7 +218,6 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
         };
 
 /**** CONSTRUCTORS ****/
-
 DWire::DWire( uint_fast32_t module ) {
     this->module = module;
     this->mode = FAST;
@@ -466,10 +485,8 @@ uint8_t DWire::read( void ) {
         return 0;
 
     uint8_t byte = rxLocalBuffer[rxReadIndex];
-    rxReadIndex = (rxReadIndex + 1 ) % RX_BUFFER_SIZE;
 
     // Check whether this was the last byte. If so, reset.
-    if (rxReadIndex == rxReadLength) {
         rxReadIndex = 0;
         rxReadLength = 0;
     }
@@ -494,7 +511,6 @@ void DWire::onReceive( void (*islHandle)( uint8_t ) ) {
 /**
  * Returns true if the module is configured as a master
  */
-bool DWire::isMaster( void ) {
     if (busRole == BUS_ROLE_MASTER) {
         return true;
     } else {
