@@ -2,12 +2,11 @@
  * dwire_msp432p401r.h
  *
  *  Created on: 30 May 2016
- *      Author: stefa_000
+ *      Author: Stefan van der Linden
  */
 
 #ifndef INCLUDE_DWIRE_MSP432P401R_H_
 #define INCLUDE_DWIRE_MSP432P401R_H_
-
 
 #ifdef USING_EUSCI_B0
 #define EUSCI_B0_PORT GPIO_PORT_P1
@@ -28,6 +27,5 @@
 #define EUSCI_B3_PORT GPIO_PORT_P6;
 #define EUSCI_B3_PINS (GPIO_PIN6 + GPIO_PIN7)
 #endif
-
 
 #endif /* INCLUDE_DWIRE_MSP432P401R_H_ */

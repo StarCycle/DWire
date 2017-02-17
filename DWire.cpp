@@ -220,28 +220,53 @@ const eUSCI_I2C_MasterConfig i2cConfigStandardMode =
 };
 
 /**** CONSTRUCTORS ****/
-DWire::DWire( uint_fast32_t module ) {
-    this->module = module;
+DWire::DWire( uint8_t mod ) 
+{
+	switch (mod) 
+    {
+        case 0:
+        	this->module = EUSCI_B0_BASE;
+            break;
+
+        case 2:
+            this->module = EUSCI_B2_BASE;
+            break;
+            
+        case 3:
+            this->module = EUSCI_B3_BASE;
+            break;
+            
+        case 1:
+        default:
+            this->module = EUSCI_B1_BASE;
+            break;
+    }
     this->mode = FAST;
 }
 
-DWire::DWire( ) {
+DWire::DWire( ) 
+{
+	// set default settings
     this->module = EUSCI_B1_BASE;
     this->mode = FAST;
 }
 
-DWire::~DWire( ) {
+DWire::~DWire( ) 
+{
     // Deregister from the moduleMap
-    // Using a switch statement now, but we can make this simpler by using module = 0,1,2,3
-    switch (module) {
+    switch (module) 
+    {
         case EUSCI_B0_BASE:
             instances[0] = 0;
             break;
+            
         case EUSCI_B1_BASE:
             instances[1] = 0;
             break;
+            
         case EUSCI_B2_BASE:
             instances[2] = 0;
+            
             break;
         case EUSCI_B3_BASE:
             instances[3] = 0;
@@ -275,7 +300,7 @@ void DWire::begin( )
     // a delay based on clock speed
     // this is needed to handle NACKs in a way that is independent
     // of CPU speed and OS (Energia or not)
-    delayCycles = MAP_CS_getMCLK( ) * 30 / 7905857;
+    delayCycles = MAP_CS_getMCLK( ) * 12 / 7905857;
 }
 
 void DWire::setStandardMode( ) 
@@ -808,14 +833,20 @@ void DWire::_I2CDelay( void )
     // this is needed because the MSP432 ignores any
     // stop if the byte is being received / transmitted
 
-    // if we are in STANDARD mode we need ~120us (4x 30us)
+    // if we are in FAST mode we need ~30us (~62 us measured)
     unsigned char loops = 4;
 
-    if (this->mode == FAST) 
+    if (this->mode == STANDARD) 
     {
-        // if we are in FAST mode, we only need a delay of 30us (~1.5 bytes at 400kHz)
-        loops = 1;
+        // if we are in STANDARD mode, we need a delay of ~120us (~170 us measured)
+        loops = 10;
     }
+    else if (this->mode == FASTPLUS)
+    {
+    	// if we are in FASTPLUS mode, we need a delay of ~12us (~22 us measured)
+    	loops = 1;
+    } 
+    
     for (unsigned char x = 0; x < loops; x++) 
     {
         for (int i = 0; i < delayCycles; i++) 

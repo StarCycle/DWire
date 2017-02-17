@@ -15,10 +15,10 @@
 #ifndef DWIRE_DWIRE_H_
 #define DWIRE_DWIRE_H_
 
-#undef USING_EUSCI_B0
+#define USING_EUSCI_B0
 #define USING_EUSCI_B1
-#undef USING_EUSCI_B2
-#undef USING_EUSCI_B3
+#define USING_EUSCI_B2
+#define USING_EUSCI_B3
 
 // Similar for the roles
 #define BUS_ROLE_MASTER 0
@@ -33,36 +33,37 @@
 #define TX_BUFFER_SIZE 256
 #define RX_BUFFER_SIZE 256
 
-#include <msp.h>
 #include <driverlib.h>
 
 /* Device specific includes */
 #include "inc/dwire_pins.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C" 
+{
 #endif
-#ifdef USING_EUSCI_B0
-extern void EUSCIB0_IRQHandler( void );
-#endif
+	#ifdef USING_EUSCI_B0
+	extern void EUSCIB0_IRQHandler( void );
+	#endif
 
-#ifdef USING_EUSCI_B1
-extern void EUSCIB1_IRQHandler( void );
-#endif
+	#ifdef USING_EUSCI_B1
+	extern void EUSCIB1_IRQHandler( void );
+	#endif
 
-#ifdef USING_EUSCI_B2
-extern void EUSCIB2_IRQHandler( void );
-#endif
+	#ifdef USING_EUSCI_B2
+	extern void EUSCIB2_IRQHandler( void );
+	#endif
 
-#ifdef USING_EUSCI_B3
-extern void EUSCIB3_IRQHandler( void );
-#endif
+	#ifdef USING_EUSCI_B3
+	extern void EUSCIB3_IRQHandler( void );
+	#endif
 #ifdef __cplusplus
 }
 #endif
 
 /* Main class definition */
-class DWire {
+class DWire 
+{
 private:
 
     uint32_t delayCycles;
@@ -110,7 +111,7 @@ public:
     uint_fast32_t module;
 
     /* Constructors */
-    DWire( uint_fast32_t );
+    DWire( uint8_t );
     DWire( );
     ~DWire( void );
 
