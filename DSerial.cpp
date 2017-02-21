@@ -16,7 +16,7 @@ extern "C" {
 #include<string.h>
 }
 
-#include "DSerial.h"
+#include <DSerial.h>
 
 /**** PROTOTYPES ****/
 void itoa( char *, uint8_t, uint32_t, uint8_t );
@@ -132,7 +132,15 @@ void itoa( char * str, uint8_t len, uint32_t val, uint8_t base ) {
     uint8_t i;
 
     for ( i = 1; i <= len; i++ ) {
-        str[len - i] = (uint8_t) ((val % base) + '0');
+        str[len - i] = (uint8_t) ((val % base));
+        if (str[len - i] > 9)
+        {
+        	str[len - i] += 'A' - 10;
+        }
+        else
+        {
+        	str[len - i] += '0';
+        }
         val /= base;
     }
     str[i - 1] = '\0';
