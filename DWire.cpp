@@ -50,7 +50,8 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
 		} \
 		\
 		/* Handle a NAK */ \
-		if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) { \
+		if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) \
+		{ \
 			stopCounter++; \
 			/* Disable all other interrupts */ \
 			MAP_I2C_disableInterrupt(EUSCI_B## M ##_BASE, \
@@ -63,7 +64,8 @@ uint8_t EUSCIB ## M ## _rxBufferSize = 0;
 		} \
 		\
 		/* Check for clock low interrupt: if it is low for too long, then reset the I2C peripheral */ \
-		if( status & EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT) { \
+		if( status & EUSCI_B_I2C_CLOCK_LOW_TIMEOUT_INTERRUPT) \
+		{ \
 			ResetCtl_initiateHardReset(); \
 		} \
 		\
@@ -281,24 +283,29 @@ void DWire::begin( )
     slaveAddress = 0;
     _initMain( );
 
-    if (mode == FAST) 
-    {
-        _initMaster( &i2cConfigFastMode );
-    } 
-    else if(mode == FASTPLUS) 
-    {
-        _initMaster( &i2cConfigFastModePlus );
-    } 
-    else 
-    {
-        _initMaster( &i2cConfigStandardMode );
-    }
-
     // calculate the number of iterations of a loop to generate
     // a delay based on clock speed
     // this is needed to handle NACKs in a way that is independent
     // of CPU speed and OS (Energia or not)
-    delayCycles = MAP_CS_getMCLK( ) * 12 / 7905857;
+	delayCycles = MAP_CS_getMCLK( ) * 12 / 7905857;
+	
+    if (mode == FAST) 
+    {
+        _initMaster( &i2cConfigFastMode );
+		// accommodate a delay of at least ~30us (~62 us measured)
+        delayCycles = delayCycles * 4;
+    } 
+    else if(mode == FASTPLUS) 
+    {
+        _initMaster( &i2cConfigFastModePlus );
+        // accommodate a delay of ~12us (~22 us measured)
+    } 
+    else 
+    {
+        _initMaster( &i2cConfigStandardMode );
+        // accommodate a delay of at least ~120us (~170 us measured)
+        delayCycles = delayCycles * 10;
+    }
 }
 
 void DWire::setStandardMode( ) 
@@ -337,8 +344,15 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress )
         return;
 
     // Wait in case a previous message is still being sent
-    while (*pTxBufferIndex > 0)
-        ;
+    timeout = 0xFFFF;
+    while ((*pTxBufferIndex > 0) & timeout)
+        timeout--;
+        
+    if (!timeout) 
+    {
+        /* If we can't start the transmission, then reset everything */
+        _resetBus( );
+    }
 
     if (slaveAddress != this->slaveAddress)
         _setSlaveAddress( slaveAddress );
@@ -361,14 +375,14 @@ bool DWire::endTransmission( void )
 
 /**
  * End the transmission and transmit the tx buffer's contents over the bus
+ * it returns true if succesful
  */
 bool DWire::endTransmission( bool sendStop ) 
 {
-    uint32_t timeout;
     // return, if there is nothing to transmit
     if (!*pTxBufferIndex) 
     {
-        return 0;
+        return true;
     }
 
     // Wait until any ongoing (incoming) transmissions are finished
@@ -420,7 +434,7 @@ bool DWire::endTransmission( bool sendStop )
         _I2CDelay( );
         MAP_I2C_masterReceiveMultiByteStop( module );
     }
-    return gotNAK;
+    return !gotNAK;
 }
 
 /**
@@ -428,7 +442,6 @@ bool DWire::endTransmission( bool sendStop )
  */
 uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes ) 
 {
-    uint32_t timeout;
     // No point of doing anything else if there we're not a MASTER
     if (busRole != BUS_ROLE_MASTER)
         return 0;
@@ -436,7 +449,11 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes )
     // still something to send? Flush the TX buffer but do not send a STOP
     if (*pTxBufferIndex > 0) 
     {
-        endTransmission( false );
+    	// this is a repeated start: no point in trying to receive if we fail finishing the transmission
+        if (!endTransmission( false ))
+        {
+        	return 0;
+        }
     } 
     else 
     {
@@ -820,38 +837,16 @@ void DWire::_finishRequest( bool NAK )
     requestDone = true;
 }
 
-bool DWire::_isSendStop( void ) 
-{
-    return sendStop;
-}
-
 void DWire::_I2CDelay( void ) 
 {
     // delay for 1.5 byte-times and send the stop
     // this is needed because the MSP432 ignores any
     // stop if the byte is being received / transmitted
 
-    // if we are in FAST mode we need ~30us (~62 us measured)
-    unsigned char loops = 4;
-
-    if (this->mode == STANDARD) 
-    {
-        // if we are in STANDARD mode, we need a delay of ~120us (~170 us measured)
-        loops = 10;
-    }
-    else if (this->mode == FASTPLUS)
-    {
-    	// if we are in FASTPLUS mode, we need a delay of ~12us (~22 us measured)
-    	loops = 1;
-    } 
-    
-    for (unsigned char x = 0; x < loops; x++) 
-    {
-        for (int i = 0; i < delayCycles; i++) 
-        {
-            __no_operation();
-        }
-    }
+    for (int i = 0; i < delayCycles; i++) 
+	{
+		__no_operation();
+	}
 }
 
 void DWire::_resetBus( void ) 

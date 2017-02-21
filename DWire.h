@@ -96,6 +96,8 @@ private:
     uint_fast8_t modulePort;
     uint_fast16_t modulePins;
 
+    uint32_t timeout;
+    
     void (*user_onRequest)( void );
     void (*user_onReceive)( uint8_t );
 
@@ -144,8 +146,7 @@ public:
     void _handleRequestSlave( void );
     void _finishRequest( void );
     void _finishRequest( bool );
-    bool _isSendStop( bool );
-    bool _isSendStop( void );
+    bool _isSendStop( ) { return sendStop; }
 };
 
 #endif /* DWIRE_DWIRE_H_ */
