@@ -2,7 +2,7 @@
  * dwire_pins.h
  *
  *  Created on: 30 May 2016
- *      Author: stefa_000
+ *      Author: Stefan van der Linden
  */
 
 #ifndef INCLUDE_DWIRE_PINS_H_
@@ -19,6 +19,5 @@
 #else
 #error "Failed to match a default include file"
 #endif
-
 
 #endif /* INCLUDE_DWIRE_PINS_H_ */
