@@ -15,11 +15,6 @@
 #ifndef DWIRE_DWIRE_H_
 #define DWIRE_DWIRE_H_
 
-#define USING_EUSCI_B0
-#define USING_EUSCI_B1
-#define USING_EUSCI_B2
-#define USING_EUSCI_B3
-
 // Similar for the roles
 #define BUS_ROLE_MASTER 0
 #define BUS_ROLE_SLAVE 1
@@ -33,6 +28,8 @@
 #define TX_BUFFER_SIZE 256
 #define RX_BUFFER_SIZE 256
 
+#define TIMEOUTLIMIT 0xFFFF
+
 #include <driverlib.h>
 
 /* Device specific includes */
@@ -42,21 +39,10 @@
 extern "C" 
 {
 #endif
-	#ifdef USING_EUSCI_B0
 	extern void EUSCIB0_IRQHandler( void );
-	#endif
-
-	#ifdef USING_EUSCI_B1
 	extern void EUSCIB1_IRQHandler( void );
-	#endif
-
-	#ifdef USING_EUSCI_B2
 	extern void EUSCIB2_IRQHandler( void );
-	#endif
-
-	#ifdef USING_EUSCI_B3
 	extern void EUSCIB3_IRQHandler( void );
-	#endif
 #ifdef __cplusplus
 }
 #endif
@@ -67,16 +53,12 @@ class DWire
 private:
 
     uint32_t delayCycles;
-
+	/* TX buffer pointers */
+	uint8_t * pTxBuffer;
     volatile uint8_t * pTxBufferIndex;
-    uint8_t * pTxBuffer;
     volatile uint8_t * pTxBufferSize;
 
-    volatile uint8_t rxReadIndex;
-    volatile uint8_t rxReadLength;
-
-    uint8_t rxLocalBuffer[RX_BUFFER_SIZE];
-
+	/* RX buffer pointers */
     uint8_t * pRxBuffer;
     uint8_t * pRxBufferIndex;
     uint8_t * pRxBufferSize;
@@ -85,17 +67,17 @@ private:
     volatile bool sendStop;
     volatile bool gotNAK;
 
-    uint8_t mode;
-
-    uint8_t slaveAddress;
-
-    uint8_t busRole;
-
+	/* MSP specific modules */
+    uint_fast32_t module;
     uint32_t intModule;
-
     uint_fast8_t modulePort;
     uint_fast16_t modulePins;
-
+    uint_fast16_t moduleSCL;
+    
+    /* Internal states */
+    uint8_t mode;
+    uint8_t slaveAddress;
+    uint8_t busRole;
     uint32_t timeout;
     
     void (*user_onRequest)( void );
@@ -109,9 +91,6 @@ private:
     void _resetBus( void );
 
 public:
-
-    uint_fast32_t module;
-
     /* Constructors */
     DWire( uint8_t );
     DWire( );
@@ -144,7 +123,6 @@ public:
     /* Internal */
     void _handleReceive( uint8_t * );
     void _handleRequestSlave( void );
-    void _finishRequest( void );
     void _finishRequest( bool );
     bool _isSendStop( ) { return sendStop; }
 };
