@@ -75,6 +75,7 @@ private:
     uint_fast16_t moduleSCL;
     
     /* Internal states */
+    eUSCI_I2C_MasterConfig config;
     uint8_t mode;
     uint8_t slaveAddress;
     uint8_t busRole;

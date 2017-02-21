@@ -158,36 +158,6 @@ CREATEBUFFERS( 1 );
 CREATEBUFFERS( 2 );
 CREATEBUFFERS( 3 );
 
-// Fast mode eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfigFastMode = 
-{
-    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
-    MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
-    EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz
-    0,                                       // No byte counter threshold
-    EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
-};
-
-// Fast mode plus eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfigFastModePlus = 
-{
-    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
-    MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
-    EUSCI_B_I2C_SET_DATA_RATE_1MBPS,         // Desired I2C Clock of 1MHz
-    0,                                       // No byte counter threshold
-    EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
-};
-
-// Standard mode eUSCI settings
-const eUSCI_I2C_MasterConfig i2cConfigStandardMode = 
-{
-    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,           // SMCLK Clock Source
-    MAP_CS_getSMCLK( ),                      // Get the SMCLK clock frequency
-    EUSCI_B_I2C_SET_DATA_RATE_100KBPS,       // Desired I2C Clock of 100khz
-    0,                                       // No byte counter threshold
-    EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
-};
-
 /**** CONSTRUCTORS ****/
 DWire::DWire( uint8_t mod ) 
 {
@@ -258,20 +228,32 @@ void DWire::begin( )
     // of CPU speed and OS (Energia or not)
 	delayCycles = MAP_CS_getMCLK( ) * 12 / 7905857;
 	
+	/* Set the EUSCI configuration */
+	config.selectClockSource = EUSCI_B_I2C_CLOCKSOURCE_SMCLK;	// SMCLK Clock Source
+	config.i2cClk = MAP_CS_getSMCLK( );							// Get the SMCLK clock frequency
+	config.byteCounterThreshold = 0;							// No byte counter threshold
+	config.autoSTOPGeneration = EUSCI_B_I2C_NO_AUTO_STOP;		// No Autostop
+	
     if (mode == FAST) 
     {
-        _initMaster( &i2cConfigFastMode );
+    	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_400KBPS;
+    	
+        _initMaster( &config );
 		// accommodate a delay of at least ~30us (~62 us measured)
         delayCycles = delayCycles * 4;
     } 
     else if(mode == FASTPLUS) 
     {
-        _initMaster( &i2cConfigFastModePlus );
+    	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_1MBPS;
+    	
+        _initMaster( &config );
         // accommodate a delay of ~12us (~22 us measured)
     } 
     else 
     {
-        _initMaster( &i2cConfigStandardMode );
+    	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_100KBPS;
+    	
+        _initMaster( &config );
         // accommodate a delay of at least ~120us (~170 us measured)
         delayCycles = delayCycles * 10;
     }
