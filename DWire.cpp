@@ -42,6 +42,8 @@
 		DWire * instance = instances[M]; \
 		if ( !instance ) \
 		{ \
+			/* Disable all interrupts if the handler was not registered */ \
+			MAP_I2C_disableInterrupt(EUSCI_B## M ##_BASE, 0xFFFF); \
 			return; \
 		} \
 		\
@@ -192,7 +194,10 @@ DWire::DWire( )
 
 DWire::~DWire( ) 
 {
-    // Deregister from the moduleMap
+	/* Reset the module */
+    MAP_I2C_disableModule( module );
+    
+    /* Deregister from the moduleMap */
     switch (module) 
     {
         case EUSCI_B0_BASE:
