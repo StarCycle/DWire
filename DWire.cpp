@@ -244,7 +244,7 @@ void DWire::begin( )
     	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_400KBPS;
     	
         _initMaster( &config );
-		// accommodate a delay of at least ~30us (~62 us measured)
+		// accommodate a delay of at least ~30us (~68us measured)
         delayCycles = delayCycles * 4;
     } 
     else if(mode == FASTPLUS) 
@@ -252,14 +252,14 @@ void DWire::begin( )
     	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_1MBPS;
     	
         _initMaster( &config );
-        // accommodate a delay of ~12us (~22 us measured)
+        // accommodate a delay of ~12us (~16us measured)
     } 
     else 
     {
     	config.dataRate = EUSCI_B_I2C_SET_DATA_RATE_100KBPS;
     	
         _initMaster( &config );
-        // accommodate a delay of at least ~120us (~170 us measured)
+        // accommodate a delay of at least ~120us (~130 us measured)
         delayCycles = delayCycles * 10;
     }
 }
