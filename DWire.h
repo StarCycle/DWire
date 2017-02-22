@@ -33,7 +33,7 @@
 #include <driverlib.h>
 
 /* Device specific includes */
-#include "inc/dwire_pins.h"
+#include <inc/dwire_pins.h>
 
 #ifdef __cplusplus
 extern "C" 
