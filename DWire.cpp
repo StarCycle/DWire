@@ -331,7 +331,7 @@ bool DWire::endTransmission( void )
 
 /**
  * End the transmission and transmit the tx buffer's contents over the bus
- * it returns true if succesful
+ * it returns false if succesful
  */
 bool DWire::endTransmission( bool sendStop ) 
 {
