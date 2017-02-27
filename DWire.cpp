@@ -351,7 +351,7 @@ bool DWire::endTransmission( bool sendStop )
     {
         /* If we can't start the transmission, then reset everything */
         _resetBus( );
-        return false;
+        return true;
     }
 
     this->sendStop = sendStop;
@@ -382,7 +382,7 @@ bool DWire::endTransmission( bool sendStop )
     if (!timeout) 
     {
         _resetBus( );
-        return false;
+        return true;
     }
 
     if (gotNAK) 
@@ -390,7 +390,7 @@ bool DWire::endTransmission( bool sendStop )
         _I2CDelay( );
         MAP_I2C_masterReceiveMultiByteStop( module );
     }
-    return !gotNAK;
+    return gotNAK;
 }
 
 /**
@@ -406,7 +406,7 @@ uint8_t DWire::requestFrom( uint_fast8_t slaveAddress, uint_fast8_t numBytes )
     if (*pTxBufferIndex > 0) 
     {
     	// this is a repeated start: no point in trying to receive if we fail finishing the transmission
-        if (!endTransmission( false ))
+        if (endTransmission( false ))
         {
         	return 0;
         }
