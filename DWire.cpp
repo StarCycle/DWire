@@ -98,7 +98,7 @@
 			{ \
 				EUSCIB## M ##_rxBuffer[EUSCIB## M ##_rxBufferIndex] = MAP_I2C_slaveGetData( \
 						EUSCI_B## M ##_BASE); \
-				EUSCIB1_rxBufferIndex++; \
+				EUSCIB## M ##_rxBufferIndex++; \
 			} \
 		} \
 		\
@@ -118,7 +118,7 @@
 					/* Disable the TX interrupt */ \
 					MAP_I2C_disableInterrupt(EUSCI_B## M ##_BASE, \
 					EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT); \
-					EUSCIB1_txBufferIndex--; \
+					EUSCIB## M ##_txBufferIndex--; \
 					\
 				} else if ( EUSCIB## M ##_txBufferIndex > 1 ) \
 				{ \
@@ -131,6 +131,12 @@
 				/* If we're a slave, then we're handling a request from the master */ \
 			} else \
 			{ \
+				/* Handle a repeated start: if in the same transaction we already
+				   received something, handle the received data first */ \
+				if ( EUSCIB## M ##_rxBufferIndex != 0 ) \
+				{ \
+					instance->_handleReceive(EUSCIB## M ##_rxBuffer); \
+				} \
 				instance->_handleRequestSlave( ); \
 			} \
 		} \
@@ -138,13 +144,18 @@
 		/* STPIFG: Called when a STOP is received */ \
 		if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) \
 		{ \
-			if ( EUSCIB## M ##_txBufferIndex != 0 && !instance->isMaster( ) ) \
+			/* Are we a slave? */ \
+			if ( !instance->isMaster( ) ) \
 			{ \
-				EUSCIB## M ##_rxBufferIndex = 0; \
-				EUSCIB## M ##_rxBufferSize = 0; \
-			} else if ( EUSCIB## M ##_rxBufferIndex != 0 ) \
-			{ \
-				instance->_handleReceive(EUSCIB## M ##_rxBuffer); \
+				/* Has something been received? */ \
+				if ( EUSCIB## M ##_rxBufferIndex != 0 ) \
+				{ \
+					instance->_handleReceive(EUSCIB## M ##_rxBuffer); \
+				} \
+				\
+				/* Clean up the TX buffer in case something was left to transmit */ \
+				EUSCIB## M ##_txBufferIndex = 0; \
+				EUSCIB## M ##_txBufferSize = 0; \
 			} \
 		} \
 	} 
@@ -324,7 +335,7 @@ void DWire::write( uint_fast8_t dataByte )
     (*pTxBufferIndex)++;
 }
 
-bool DWire::endTransmission( void ) 
+uint8_t DWire::endTransmission( void ) 
 {
     return endTransmission( true );
 }
@@ -333,12 +344,12 @@ bool DWire::endTransmission( void )
  * End the transmission and transmit the tx buffer's contents over the bus
  * it returns false if succesful
  */
-bool DWire::endTransmission( bool sendStop ) 
+uint8_t DWire::endTransmission( bool sendStop ) 
 {
     // return, if there is nothing to transmit
     if (!*pTxBufferIndex) 
     {
-        return true;
+        return 2;
     }
 
     // Wait until any ongoing (incoming) transmissions are finished
@@ -351,7 +362,7 @@ bool DWire::endTransmission( bool sendStop )
     {
         /* If we can't start the transmission, then reset everything */
         _resetBus( );
-        return true;
+        return 3;
     }
 
     this->sendStop = sendStop;
@@ -382,7 +393,7 @@ bool DWire::endTransmission( bool sendStop )
     if (!timeout) 
     {
         _resetBus( );
-        return true;
+        return 4;
     }
 
     if (gotNAK) 
@@ -745,12 +756,17 @@ void DWire::_handleReceive( uint8_t * rxBuffer )
     // No need to do anything if there is no handler registered
     if (!user_onReceive)
         return;
-
+	
+	*pRxBufferSize = *pRxBufferIndex;
+	
     // reset the RX buffer index to prepare the readout
     *pRxBufferIndex = 0;
-
+    
 	// call the user-defined receive handler
     user_onReceive( *pRxBufferSize );
+    
+    // reset the RX buffer index to prepare new Receive
+    *pRxBufferIndex = 0;
 }
 
 void DWire::_finishRequest( bool success ) 

@@ -105,8 +105,8 @@ public:
 
     void beginTransmission( uint_fast8_t );
     void write( uint_fast8_t );
-    bool endTransmission( void );
-    bool endTransmission( bool );
+    uint8_t endTransmission( void );
+    uint8_t endTransmission( bool );
 
     uint8_t requestFrom( uint_fast8_t, uint_fast8_t );
 
