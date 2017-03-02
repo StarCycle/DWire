@@ -19,7 +19,6 @@
  
 #include <DWire.h>
 #include <DSerial.h>
-#include <I2CScanner.h>
 
 #define SLAVE_ADDRESS 0x42
 #define BUFFER_LENGTH 4
@@ -48,6 +47,25 @@ void setup()
   character = '0';
   
   delay(200);
+}
+
+unsigned char scan(DWire &i2c, void (*devFoundHandler)( unsigned char ))
+{
+    unsigned char devices = 0;
+    for(unsigned char address = 1; address < 126; address++ )
+    {
+        if (i2c.requestFrom(address, 1)) 
+        {
+            devices++;
+            // if an handler is defined, notify which address was found
+            if (devFoundHandler)
+            {
+                devFoundHandler(address);
+            }
+        }
+    }   
+    
+    return devices;
 }
 
 void send()
@@ -96,7 +114,6 @@ void request()
   serial.print("Request: ");
   if(master.requestFrom(SLAVE_ADDRESS, BUFFER_LENGTH) == BUFFER_LENGTH) 
   {
-    serial.print("MASTER RX: ");
     for(unsigned short k = 0; k < BUFFER_LENGTH; k++)
     {
       serial.print(master.read());
@@ -117,7 +134,6 @@ void requestWithWrite()
   master.write('!');
   if(master.requestFrom(SLAVE_ADDRESS, BUFFER_LENGTH) == BUFFER_LENGTH) 
   {
-    serial.print("MASTER RX: ");
     for(unsigned short k = 0; k < BUFFER_LENGTH; k++)
     {
       serial.print(master.read());
@@ -137,7 +153,7 @@ void loop()
 
   serial.println();
   serial.println("Scanning...");
-  I2CScanner::scan(master, deviceFound);
+  scan(master, deviceFound);
   serial.println("Scan done.");
 
   serial.println();

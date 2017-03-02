@@ -19,7 +19,7 @@
  
 #include <DWire.h>
 
-#define PRINT_RX true
+#define PRINT_RX false
 
 DWire slave(0);
 
@@ -86,7 +86,7 @@ void handleRequest( void )
 #if PRINT_RX
   serial.print("SLAVE TX: ");
 #endif
-  for(unsigned short i = 0; i < received; i++)
+  for(unsigned short i = 0; i < BUFFER_LENGTH; i++)
   {
 #if PRINT_RX
     serial.print(slaveBuffer[i]);
