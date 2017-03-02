@@ -30,7 +30,7 @@
  * http://software-dl.ti.com/msp430/msp430_public_sw/mcu/msp430/MSP430BaudRateConverter/index.html
  */
 // TODO: make this configurable
-const eUSCI_UART_Config uartConfig =
+const eUSCI_UART_Config uartConfig2 =
 {
         EUSCI_A_UART_CLOCKSOURCE_SMCLK,          // SMCLK Clock Source
         78,                                     // BRDIV = 78
@@ -45,10 +45,11 @@ const eUSCI_UART_Config uartConfig =
 
 class DSerial {
 private:
-
+    eUSCI_UART_Config uartConfig;
+ 
 public:
     DSerial( void );
-    void begin( void );
+    void begin( unsigned int baudrate = 9600);
     void print( uint_fast8_t );
     void print( const char * );
     void print( uint_fast8_t, uint_fast8_t );
