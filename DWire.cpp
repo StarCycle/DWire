@@ -39,7 +39,6 @@
 		\
 		/* Get a reference to the correct instance */ \
 		/* if it is null, ignore the interrupt */ \
-		DWire * instance = instances[M]; \
 		if ( !instance ) \
 		{ \
 			/* Disable all interrupts if the handler was not registered */ \
@@ -151,8 +150,6 @@
 
 /**** GLOBAL VARIABLES ****/
 
-/* A reference list of DWire instances */
-DWire * instances[4];
 
 // The buffers need to be declared globally, as the interrupts are too
 CREATEBUFFERS( 0 );
@@ -201,19 +198,15 @@ DWire::~DWire( )
     switch (module) 
     {
         case EUSCI_B0_BASE:
-            instances[0] = 0;
             break;
             
         case EUSCI_B1_BASE:
-            instances[1] = 0;
             break;
             
         case EUSCI_B2_BASE:
-            instances[2] = 0;
             
             break;
         case EUSCI_B3_BASE:
-            instances[3] = 0;
             break;
     }
 }
@@ -545,7 +538,6 @@ void DWire::_initMain( void )
     {
         case EUSCI_B0_BASE:
 
-			instances[0] = this;
 
 			pTxBuffer = EUSCIB0_txBuffer;
 			pTxBufferIndex = &EUSCIB0_txBufferIndex;
@@ -566,7 +558,6 @@ void DWire::_initMain( void )
 
         case EUSCI_B1_BASE:
 
-            instances[1] = this;
 
             pTxBuffer = EUSCIB1_txBuffer;
             pTxBufferIndex = &EUSCIB1_txBufferIndex;
@@ -587,7 +578,6 @@ void DWire::_initMain( void )
 
         case EUSCI_B2_BASE:
 
-            instances[2] = this;
 
             pTxBuffer = EUSCIB2_txBuffer;
             pTxBufferIndex = &EUSCIB2_txBufferIndex;
@@ -608,7 +598,6 @@ void DWire::_initMain( void )
 
         case EUSCI_B3_BASE:
 
-            instances[3] = this;
 
             pTxBuffer = EUSCIB3_txBuffer;
             pTxBufferIndex = &EUSCIB3_txBufferIndex;
