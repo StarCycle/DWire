@@ -31,13 +31,16 @@ int main( void ) {
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
 
+    /* Setting DCO to 48MHz */
+    CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_48);
+
     // Start the serial port
     serial = new DSerial( );
     serial->begin( );
     serial->println("Starting...");
 
-    // Create a new instance of DWire on the EUSCI_B0_BASE module
-    wire = new DWire( EUSCI_B0_BASE);
+    // Create a new instance of DWire on the EUSCI_B1 module
+    wire = new DWire( 1 );
 
 // The code for the master setup
 #ifdef I2C_MASTER
@@ -66,11 +69,11 @@ int main( void ) {
             ;
 
         serial->println("Requesting data...");
-        uint8_t * data = wire->requestFrom(0x42, 6);
+        uint8_t dataSize = wire->requestFrom(0x42, 6);
 
         serial->print("Got: ");
-        for ( int j = 0; j < 6; j++ ) {
-            serial->print(data[j]);
+        for ( int j = 0; j < dataSize; j++ ) {
+            serial->print(wire->read());
         }
         serial->println( );
 
