@@ -98,7 +98,7 @@
 			{ \
 				EUSCIB## M ##_rxBuffer[EUSCIB## M ##_rxBufferIndex] = MAP_I2C_slaveGetData( \
 						EUSCI_B## M ##_BASE); \
-				EUSCIB1_rxBufferIndex++; \
+				EUSCIB## M ##_rxBufferIndex++; \
 			} \
 		} \
 		\
@@ -118,7 +118,7 @@
 					/* Disable the TX interrupt */ \
 					MAP_I2C_disableInterrupt(EUSCI_B## M ##_BASE, \
 					EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT); \
-					EUSCIB1_txBufferIndex--; \
+					EUSCIB## M ##_txBufferIndex--; \
 					\
 				} else if ( EUSCIB## M ##_txBufferIndex > 1 ) \
 				{ \
