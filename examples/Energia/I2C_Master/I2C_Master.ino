@@ -21,11 +21,11 @@
 
 DSerial serial;
 
-DWire wire;
+DWire wire(EUSCI_B0_BASE);
 uint8_t i;
 
 void setup( ) {
-    wire.begin( EUSCI_B0_BASE );
+    wire.begin( );
     serial.begin( );
     
     // Give the slave some time to start up

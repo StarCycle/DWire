@@ -20,7 +20,7 @@
 #include "DSerial.h"
 
 // Initialise the 
-DWire wire;
+DWire wire(EUSCI_B0_BASE);
 DSerial serial;
 
 uint8_t buff[4];
@@ -34,7 +34,7 @@ void setup()
   serial.println("Ready as slave...");
 
   // Start the module as a slave on address 0x42
-  wire.begin(EUSCI_B0_BASE, 0x42);
+  wire.begin(0x42);
   wire.onReceive(handleReceive);
   wire.onRequest(handleRequest);
 }
