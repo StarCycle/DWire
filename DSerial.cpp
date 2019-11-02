@@ -31,17 +31,20 @@ DSerial::DSerial( void ) {
 }
 
 /**** PUBLIC METHODS ****/
-void DSerial::begin( void ) {
-
-    /* Selecting P1.2 and P1.3 in UART mode */
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
-    GPIO_PIN1 | GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
-
+void DSerial::begin( void )
+{
     /* Configuring UART Module */
     MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig);
 
     /* Enable UART module */
     MAP_UART_enableModule(EUSCI_A0_BASE);
+
+    // Selecting P1.2 and P1.3 in UART mode
+    // Select pin function after the UART was initialized to prevent
+    // the line from being active before first transmission
+    // it prevents a spurious character from being sent
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
+    GPIO_PIN1 | GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
 }
 
 /**
