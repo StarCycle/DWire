@@ -1,6 +1,13 @@
-language: cpp
+sudo: required
 dist: bionic
-compiler: gcc
+language: python
+
+services:
+  - docker
+
+cache:
+  directories:
+    - cache
 
 env:
   global:
@@ -14,13 +21,16 @@ env:
 #    - INSTALL_IU=com.ti.cgt.c2000.18.linux.feature.group/18.12.3
 #    - UNINSTALL_IU=com.ti.cgt.c2000.18.linux.feature.group/18.12.2
 
-install:
-  - sudo apt install libc6-i386 libusb-0.1-4 libgconf-2-4 build-essential
-  - sudo apt-get update -qq
-  - wget "$URL" -O ~/ccs.tar.gz
-  - tar -xvf ~/ccs.tar.gz
-
-
-
-script: 
-  
+jobs:
+  include:
+    - stage: Build
+      script:
+      - if ! [ -f "$TARPATH" ]; then
+          curl --location "$URL" > "$TARPATH";
+        fi
+      - ls -l "$TARPATH"
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - travis_wait 60 docker build --pull --no-cache -t $IMAGE_NAME . --build-arg FROM="$BASE_IMAGE_NAME" --build-arg IU="$IU"
+      - docker run --rm -it $IMAGE_NAME ccstudio -noSplash -data /workspace -application com.ti.ccstudio.apps.projectImport -ccs.help | grep -i usage
+      - docker tag $IMAGE_NAME $DOCKER_USERNAME/$IMAGE_NAME
+      - docker push $DOCKER_USERNAME/$IMAGE_NAME
