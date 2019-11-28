@@ -1,4 +1,8 @@
 # DWire (Delft Wire)
+
+### Status
+[![Build Status](https://travis-ci.org/DelfiSpace/DWire/Travis.svg)](https://travis-ci.org/DelfiSpace/DWire/Travis.svg)
+
 A simple library for handling I2C on the MSP432, trying to be similar to Energia's Wire library (originally from Arduino) but providing more advanced features.
 
 ## Introduction and Features
@@ -18,3 +22,4 @@ Major features include:
 The library can directly be used in Energia. Simply clone the repository or download the zip file, placing the root directory of the repository in your Energia user folder's 'libraries' folder. E.g. in Windows, this is typically found in **C:\Documents\Energia\libraries**. This library uses `driverlib`, which should come with the standard Energia installation. Nevertheless, make sure this library is accessible to the compiler.
 
 DWire should be able to compile with all generic toolchains for the MSP432.
+
