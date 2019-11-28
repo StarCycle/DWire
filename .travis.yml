@@ -15,7 +15,7 @@ env:
 #    - UNINSTALL_IU=com.ti.cgt.c2000.18.linux.feature.group/18.12.2
 
 install:
-  - sudo apt install libc6:i386 libusb-0.1-4 libgconf-2-4 build-essential
+  - sudo apt install libc6-i386 libusb-0.1-4 libgconf-2-4 build-essential
   - sudo apt-get update -qq
   - wget "$URL" -O ~/ccs.tar.gz
   - tar -xvf ~/ccs.tar.gz

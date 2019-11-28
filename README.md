@@ -1,7 +1,7 @@
 # DWire (Delft Wire)
 
 ### Status
-[![Build Status](https://travis-ci.org/DelfiSpace/DWire/Travis.svg)](https://travis-ci.org/DelfiSpace/DWire/Travis.svg)
+[![Build Status](https://img.shields.io/travis/DelfiSpace/DWire/Travis.svg)](https://img.shields.io/travis/DelfiSpace/DWire/Travis.svg)
 
 A simple library for handling I2C on the MSP432, trying to be similar to Energia's Wire library (originally from Arduino) but providing more advanced features.
 
