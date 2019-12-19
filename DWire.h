@@ -35,19 +35,6 @@
 /* Device specific includes */
 #include <inc/pins.h>
 
-#ifdef __cplusplus
-extern "C" 
-{
-#endif
-	extern void EUSCIB0_IRQHandler( void );
-	extern void EUSCIB1_IRQHandler( void );
-	extern void EUSCIB2_IRQHandler( void );
-	extern void EUSCIB3_IRQHandler( void );
-#ifdef __cplusplus
-}
-#endif
-
-/* Main class definition */
 class DWire 
 {
 private:
@@ -90,6 +77,11 @@ private:
     void _setSlaveAddress( uint_fast8_t );
     void _I2CDelay( void );
     void _resetBus( void );
+
+    friend void EUSCIB0_IRQHandler_I2C( void );
+    friend void EUSCIB1_IRQHandler_I2C( void );
+    friend void EUSCIB2_IRQHandler_I2C( void );
+    friend void EUSCIB3_IRQHandler_I2C( void );
 
 public:
     /* Constructors */

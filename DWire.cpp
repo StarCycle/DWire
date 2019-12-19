@@ -160,6 +160,27 @@ CREATEBUFFERS( 1 );
 CREATEBUFFERS( 2 );
 CREATEBUFFERS( 3 );
 
+/**** ISR/IRQ Handles ****/
+void EUSCIB0_IRQHandler_I2C( void )
+{
+    IRQHANDLER(0);
+}
+
+void EUSCIB1_IRQHandler_I2C( void )
+{
+    IRQHANDLER(1);
+}
+
+void EUSCIB2_IRQHandler_I2C( void )
+{
+    IRQHANDLER(2);
+}
+
+void EUSCIB3_IRQHandler_I2C( void )
+{
+    IRQHANDLER(3);
+}
+
 /**** CONSTRUCTORS ****/
 DWire::DWire( uint8_t mod ) 
 {
@@ -561,7 +582,7 @@ void DWire::_initMain( void )
 
 			intModule = INT_EUSCIB0;
 
-			MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+			MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler_I2C);
 			break;
 
         case EUSCI_B1_BASE:
@@ -582,7 +603,7 @@ void DWire::_initMain( void )
 
             intModule = INT_EUSCIB1;
 
-            MAP_I2C_registerInterrupt( module, EUSCIB1_IRQHandler );
+            MAP_I2C_registerInterrupt( module, EUSCIB1_IRQHandler_I2C);
             break;
 
         case EUSCI_B2_BASE:
@@ -603,7 +624,7 @@ void DWire::_initMain( void )
 			
             intModule = INT_EUSCIB2;
 
-            MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
+            MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler_I2C);
             break;
 
         case EUSCI_B3_BASE:
@@ -624,7 +645,7 @@ void DWire::_initMain( void )
 
             intModule = INT_EUSCIB3;
 
-            MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
+            MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler_I2C);
             break;
 
         default:
@@ -807,26 +828,4 @@ void DWire::_resetBus( void )
     MAP_I2C_enableModule( module );
 }
 
-/**** ISR/IRQ Handles ****/
-extern "C" 
-{
-    void EUSCIB0_IRQHandler( void ) 
-    {
-        IRQHANDLER(0);
-    }
 
-	void EUSCIB1_IRQHandler( void ) 
-	{
-		IRQHANDLER(1);
-	}
-
-    void EUSCIB2_IRQHandler( void ) 
-    {
-        IRQHANDLER(2);
-    }
-
-    void EUSCIB3_IRQHandler( void ) 
-    {
-        IRQHANDLER(3);
-    }
-}
