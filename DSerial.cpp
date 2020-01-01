@@ -118,6 +118,14 @@ void DSerial::println( const char * text ) {
     println( );
 }
 
+/**
+ * Formats a number according to the type specified
+ * Currently only integers are supported
+ */
+void DSerial::println( uint_fast32_t num, uint_fast8_t type ) {
+    print(num, type);
+    println();
+}
 /**** PRIVATE METHODS ****/
 
 /**

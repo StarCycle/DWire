@@ -55,6 +55,7 @@ public:
     void println( void );
     void println( uint_fast8_t );
     void println( const char * );
+    void println( uint_fast8_t, uint_fast8_t );
 };
 
 #endif /* DWIRE_DSERIAL_H_ */
