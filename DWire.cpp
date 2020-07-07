@@ -12,7 +12,7 @@
  *
  */
 
-#include <DWire.h>
+#include "DWire.h"
 
 /**** MACROs ****/
 
